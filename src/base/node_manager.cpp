@@ -19,6 +19,7 @@ NodeManager::NodeManager() {
     // -------------------------------------------------
     // Node 2
     // -------------------------------------------------
+    /*
     nodes[1].nodeId = 1;
     uint8_t node2Mac[6] = {
         0x0C, 0x4E, 0xA0,
@@ -27,7 +28,7 @@ NodeManager::NodeManager() {
     memcpy(nodes[1].mac, node2Mac, 6);
 
     nodes[1].online = false;
-    nodes[1].lastResponse = 0;
+    nodes[1].lastResponse = 0; */
 }
 
 void NodeManager::begin() {

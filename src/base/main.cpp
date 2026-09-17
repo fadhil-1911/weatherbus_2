@@ -1,12 +1,12 @@
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //                    WeatherBus
 //                   Version: 1.0
-//             Last Updated: 2026-09-14
+//             Last Updated: 2026-09-17
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 /*
   Module  : Base Station - Main Application
   Transport : ESP-NOW
-  Phase   : Phase 2
+  Phase   : 
 */
 
 #include <Arduino.h>
@@ -16,7 +16,11 @@
 #include "node_manager.h"
 #include "polling_engine.h"
 
+#include "local_sensor_manager.h"
+
+
 NodeManager nodeManager;
+LocalSensorManager localSensorManager; // local sensor manager instance
 PollingEngine pollingEngine(nodeManager);
 
 // =====================================================
@@ -102,6 +106,7 @@ void setup() {
     Serial.println("================================");
     Serial.println();
     nodeManager.begin();
+    localSensorManager.begin(); // Initialize the local sensor manager
 
     if (!setupEspNow()) {
         Serial.println("SYSTEM HALTED");
@@ -113,11 +118,49 @@ void setup() {
     Serial.println();
     Serial.println("ESP-NOW ready");
     pollingEngine.begin();
+    
 }
 
 // =====================================================
 // Main loop
 // =====================================================
 void loop() {
+
     pollingEngine.update();
+
+    static uint32_t lastSensorRead = 0;
+
+    if (millis() - lastSensorRead >= 2000) {
+
+        lastSensorRead = millis();
+
+        WeatherBus::SensorDataPayload data{};
+        uint8_t flags = 0;
+
+        localSensorManager.readSensors(
+            data,
+            flags);
+
+        Serial.println();
+        Serial.println("========== LOCAL SENSOR ==========");
+
+        Serial.printf(
+            "Flags       : 0x%02X\n",
+            flags);
+
+        Serial.printf(
+            "Temperature : %.2f C\n",
+            data.temperature);
+
+        Serial.printf(
+            "Humidity    : %.2f %%\n",
+            data.humidity);
+
+        Serial.printf(
+            "Pressure    : %.2f hPa\n",
+            data.pressure);
+
+        Serial.println(
+            "==================================");
+    }
 }

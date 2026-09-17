@@ -20,6 +20,6 @@ class NodeManager {
     void markOffline(uint8_t nodeId);
 
   private:
-    static constexpr uint8_t MAX_NODES = 2;
+    static constexpr uint8_t MAX_NODES = 1; // FOR TESTING PURPOSES, ONLY ONE NODE IS CONFIGURED. CHANGE THIS TO 2 OR MORE FOR PRODUCTION.
     NodeInfo nodes[MAX_NODES];
 };

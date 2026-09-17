@@ -24,14 +24,18 @@ using namespace WeatherBus;
 // NODE CONFIGURATION
 // =====================================================
 
-constexpr uint8_t NODE_ID = 2;
+constexpr uint8_t NODE_ID = 1;
 
 // =====================================================
 // SENSOR CONFIGURATION
 // =====================================================
 
-constexpr bool ENABLE_SHT41 = true;
+constexpr bool ENABLE_SHT41 = false;
 constexpr bool ENABLE_BME280 = true;
+
+// Select temperature and humidity source
+constexpr bool USE_BME280_TEMPERATURE = true;
+constexpr bool USE_BME280_HUMIDITY = true;
 
 // =====================================================
 // SHT41 CONFIGURATION
@@ -64,16 +68,22 @@ uint8_t baseMac[] = {
 // Polynomial: 0x31
 // =====================================================
 
-uint8_t sht41Crc8(const uint8_t* data, uint8_t length) {
+uint8_t sht41Crc8(const uint8_t *data, uint8_t length)
+{
     uint8_t crc = 0xFF;
 
-    for (uint8_t i = 0; i < length; i++) {
+    for (uint8_t i = 0; i < length; i++)
+    {
         crc ^= data[i];
 
-        for (uint8_t bit = 0; bit < 8; bit++) {
-            if (crc & 0x80) {
+        for (uint8_t bit = 0; bit < 8; bit++)
+        {
+            if (crc & 0x80)
+            {
                 crc = (crc << 1) ^ 0x31;
-            } else {
+            }
+            else
+            {
                 crc <<= 1;
             }
         }
@@ -86,7 +96,8 @@ uint8_t sht41Crc8(const uint8_t* data, uint8_t length) {
 // Setup SHT41
 // =====================================================
 
-bool setupSHT41() {
+bool setupSHT41()
+{
     Wire.begin(SHT41_SDA, SHT41_SCL);
     Wire.setClock(100000);
     delay(10);
@@ -94,7 +105,8 @@ bool setupSHT41() {
     Wire.beginTransmission(SHT41_ADDRESS);
     Wire.write(SHT41_MEASURE_HIGH_PRECISION);
 
-    if (Wire.endTransmission() != 0) {
+    if (Wire.endTransmission() != 0)
+    {
         Serial.println("ERROR: SHT41 communication failed");
         return false;
     }
@@ -109,11 +121,13 @@ bool setupSHT41() {
 // Read SHT41
 // =====================================================
 
-bool readSHT41(float& temperature, float& humidity) {
+bool readSHT41(float &temperature, float &humidity)
+{
     Wire.beginTransmission(SHT41_ADDRESS);
     Wire.write(SHT41_MEASURE_HIGH_PRECISION);
 
-    if (Wire.endTransmission() != 0) {
+    if (Wire.endTransmission() != 0)
+    {
         Serial.println("ERROR: SHT41 measurement command failed");
         return false;
     }
@@ -124,23 +138,27 @@ bool readSHT41(float& temperature, float& humidity) {
         SHT41_ADDRESS,
         (uint8_t)6);
 
-    if (received != 6) {
+    if (received != 6)
+    {
         Serial.println("ERROR: SHT41 invalid response length");
         return false;
     }
 
     uint8_t data[6];
 
-    for (uint8_t i = 0; i < 6; i++) {
+    for (uint8_t i = 0; i < 6; i++)
+    {
         data[i] = Wire.read();
     }
 
-    if (sht41Crc8(data, 2) != data[2]) {
+    if (sht41Crc8(data, 2) != data[2])
+    {
         Serial.println("ERROR: SHT41 temperature CRC failed");
         return false;
     }
 
-    if (sht41Crc8(&data[3], 2) != data[5]) {
+    if (sht41Crc8(&data[3], 2) != data[5])
+    {
         Serial.println("ERROR: SHT41 humidity CRC failed");
         return false;
     }
@@ -159,11 +177,13 @@ bool readSHT41(float& temperature, float& humidity) {
         -6.0f + 125.0f *
                     ((float)rawHumidity / 65535.0f);
 
-    if (humidity < 0.0f) {
+    if (humidity < 0.0f)
+    {
         humidity = 0.0f;
     }
 
-    if (humidity > 100.0f) {
+    if (humidity > 100.0f)
+    {
         humidity = 100.0f;
     }
     return true;
@@ -173,8 +193,10 @@ bool readSHT41(float& temperature, float& humidity) {
 // Setup BME280
 // =====================================================
 
-bool setupBME280() {
-    if (!bme.begin(BME280_I2C_ADDRESS, &Wire)) {
+bool setupBME280()
+{
+    if (!bme.begin(BME280_I2C_ADDRESS, &Wire))
+    {
         Serial.println(
             "ERROR: BME280 communication failed");
 
@@ -190,10 +212,12 @@ bool setupBME280() {
 // BME280 recovery
 // =====================================================
 
-bool recoverBME280() {
+bool recoverBME280()
+{
     Serial.println("BME280 recovery attempt...");
 
-    if (!bme.begin(BME280_I2C_ADDRESS, &Wire)) {
+    if (!bme.begin(BME280_I2C_ADDRESS, &Wire))
+    {
         Serial.println("BME280 recovery failed");
         return false;
     }
@@ -206,33 +230,107 @@ bool recoverBME280() {
 // Read BME280
 // =====================================================
 
-bool readBME280(float& pressure) {
+// =====================================================
+// Read BME280
+// =====================================================
+
+bool readBME280(
+    float &temperature,
+    float &humidity,
+    float &pressure)
+{
+
+    temperature = 0.0f;
+    humidity = 0.0f;
     pressure = 0.0f;
 
-    float reading = bme.readPressure() / 100.0F;
+    float readingTemperature =
+        bme.readTemperature();
 
-    if (!isfinite(reading) ||
-        reading < 300.0F ||
-        reading > 1100.0F) {
+    float readingHumidity =
+        bme.readHumidity();
 
-        Serial.println("ERROR: BME280 pressure invalid");
+    float readingPressure =
+        bme.readPressure() / 100.0F;
 
-        if (!recoverBME280()) {
+    Serial.printf(
+        "BME280 RAW | T=%.2f C | RH=%.2f %% | P=%.2f hPa\n",
+        readingTemperature,
+        readingHumidity,
+        readingPressure);
+
+    bool temperatureValid =
+        isfinite(readingTemperature) &&
+        readingTemperature > -40.0F &&
+        readingTemperature < 85.0F;
+
+    bool humidityValid =
+        isfinite(readingHumidity) &&
+        readingHumidity >= 0.0F &&
+        readingHumidity <= 100.0F;
+
+    bool pressureValid =
+        isfinite(readingPressure) &&
+        readingPressure >= 300.0F &&
+        readingPressure <= 1100.0F;
+
+    // -------------------------------------------------
+    // Recovery if any BME280 reading is invalid
+    // -------------------------------------------------
+
+    if (!temperatureValid ||
+        !humidityValid ||
+        !pressureValid)
+    {
+
+        Serial.println(
+            "ERROR: BME280 reading invalid");
+
+        if (!recoverBME280())
+        {
             return false;
         }
 
-        reading = bme.readPressure() / 100.0F;
+        readingTemperature =
+            bme.readTemperature();
 
-        if (!isfinite(reading) ||
-            reading < 300.0F ||
-            reading > 1100.0F) {
+        readingHumidity =
+            bme.readHumidity();
+
+        readingPressure =
+            bme.readPressure() / 100.0F;
+
+        temperatureValid =
+            isfinite(readingTemperature) &&
+            readingTemperature > -40.0F &&
+            readingTemperature < 85.0F;
+
+        humidityValid =
+            isfinite(readingHumidity) &&
+            readingHumidity >= 0.0F &&
+            readingHumidity <= 100.0F;
+
+        pressureValid =
+            isfinite(readingPressure) &&
+            readingPressure >= 300.0F &&
+            readingPressure <= 1100.0F;
+
+        if (!temperatureValid ||
+            !humidityValid ||
+            !pressureValid)
+        {
+
             Serial.println(
-                "ERROR: BME280 pressure still invalid after recovery");
+                "ERROR: BME280 readings still invalid after recovery");
+
             return false;
         }
     }
 
-    pressure = reading;
+    temperature = readingTemperature;
+    humidity = readingHumidity;
+    pressure = readingPressure;
+
     return true;
 }
 
@@ -240,7 +338,8 @@ bool readBME280(float& pressure) {
 // Send SENSOR_DATA
 // =====================================================
 
-void sendSensorData(uint16_t requestSequence) {
+void sendSensorData(uint16_t requestSequence)
+{
 
     float temperature = 0.0f;
     float humidity = 0.0f;
@@ -249,37 +348,105 @@ void sendSensorData(uint16_t requestSequence) {
     uint8_t sensorFlags = 0;
 
     // -------------------------------------------------
-    // SHT41
+    // Read BME280
     // -------------------------------------------------
 
-    if (ENABLE_SHT41) {
+    float bmeTemperature = 0.0f;
+    float bmeHumidity = 0.0f;
+    float bmePressure = 0.0f;
 
-        if (readSHT41(temperature, humidity)) {
+    bool bme280ReadOK = false;
 
-            sensorFlags |= FLAG_TEMPERATURE_VALID;
-            sensorFlags |= FLAG_HUMIDITY_VALID;
+    if (ENABLE_BME280)
+    {
 
-        } else {
+        bme280ReadOK =
+            readBME280(
+                bmeTemperature,
+                bmeHumidity,
+                bmePressure);
+
+        if (bme280ReadOK)
+        {
+
+            // Pressure always comes from BME280
+            pressure = bmePressure;
+
+            sensorFlags |=
+                FLAG_PRESSURE_VALID;
+
+            // Temperature source selection
+            if (USE_BME280_TEMPERATURE)
+            {
+
+                temperature =
+                    bmeTemperature;
+
+                sensorFlags |=
+                    FLAG_TEMPERATURE_VALID;
+            }
+
+            // Humidity source selection
+            if (USE_BME280_HUMIDITY)
+            {
+
+                humidity =
+                    bmeHumidity;
+
+                sensorFlags |=
+                    FLAG_HUMIDITY_VALID;
+            }
+        }
+        else
+        {
 
             Serial.println(
-                "WARNING: SHT41 unavailable");
+                "WARNING: BME280 read failed");
         }
     }
 
     // -------------------------------------------------
-    // BME280
+    // SHT41
     // -------------------------------------------------
 
-    if (ENABLE_BME280) {
+    if (ENABLE_SHT41)
+    {
 
-        if (readBME280(pressure)) {
+        float shtTemperature = 0.0f;
+        float shtHumidity = 0.0f;
 
-            sensorFlags |= FLAG_PRESSURE_VALID;
+        if (readSHT41(
+                shtTemperature,
+                shtHumidity))
+        {
 
-        } else {
+            // Use SHT41 temperature if selected
+            if (!USE_BME280_TEMPERATURE)
+            {
+
+                temperature =
+                    shtTemperature;
+
+                sensorFlags |=
+                    FLAG_TEMPERATURE_VALID;
+            }
+
+            // Use SHT41 humidity if selected
+            if (!USE_BME280_HUMIDITY)
+            {
+
+                humidity =
+                    shtHumidity;
+
+                sensorFlags |=
+                    FLAG_HUMIDITY_VALID;
+            }
+        }
+        else
+        {
 
             Serial.println(
-                "WARNING: BME280 pressure unavailable");
+                "WARNING: SHT41 read failed");
         }
     }
 
@@ -327,10 +494,11 @@ void sendSensorData(uint16_t requestSequence) {
 
     esp_err_t result = esp_now_send(
         baseMac,
-        reinterpret_cast<uint8_t*>(&packet),
+        reinterpret_cast<uint8_t *>(&packet),
         sizeof(packet));
 
-    if (result == ESP_OK) {
+    if (result == ESP_OK)
+    {
 
         Serial.printf(
             "TX: SENSOR_DATA | "
@@ -347,8 +515,9 @@ void sendSensorData(uint16_t requestSequence) {
             packet.payload.temperature,
             packet.payload.humidity,
             packet.payload.pressure);
-
-    } else {
+    }
+    else
+    {
 
         Serial.printf(
             "TX ERROR: %d\n",
@@ -442,8 +611,10 @@ void sendSensorData(uint16_t requestSequence) {
 // Receive DATA_REQUEST
 // =====================================================
 
-void onDataReceived(const uint8_t* mac, const uint8_t* data, int len) {
-    if (len != sizeof(Header)) {
+void onDataReceived(const uint8_t *mac, const uint8_t *data, int len)
+{
+    if (len != sizeof(Header))
+    {
         Serial.printf(
             "RX ERROR: Invalid packet size | Received=%d | Expected=%u\n",
             len,
@@ -456,7 +627,8 @@ void onDataReceived(const uint8_t* mac, const uint8_t* data, int len) {
 
     memcpy(&request, data, sizeof(request));
 
-    if (request.protocolVersion != PROTOCOL_VERSION) {
+    if (request.protocolVersion != PROTOCOL_VERSION)
+    {
         Serial.printf(
             "RX ERROR: Invalid protocol version | Received=%u | Expected=%u\n",
             request.protocolVersion,
@@ -465,13 +637,15 @@ void onDataReceived(const uint8_t* mac, const uint8_t* data, int len) {
         return;
     }
 
-    if (request.packetType != static_cast<uint8_t>(PacketType::DATA_REQUEST)) {
+    if (request.packetType != static_cast<uint8_t>(PacketType::DATA_REQUEST))
+    {
         Serial.printf("RX ERROR: Invalid packet type | Received=0x%02X\n",
                       request.packetType);
         return;
     }
 
-    if (request.nodeId != NODE_ID) {
+    if (request.nodeId != NODE_ID)
+    {
         Serial.printf("RX ERROR: Invalid Node ID | Received=%u | This Node=%u\n",
                       request.nodeId,
                       NODE_ID);
@@ -479,7 +653,8 @@ void onDataReceived(const uint8_t* mac, const uint8_t* data, int len) {
         return;
     }
 
-    if (request.payloadLength != 0) {
+    if (request.payloadLength != 0)
+    {
         Serial.printf("RX ERROR: Invalid payload length | Received=%u | Expected=0\n",
                       request.payloadLength);
 
@@ -497,13 +672,15 @@ void onDataReceived(const uint8_t* mac, const uint8_t* data, int len) {
 // ESP-NOW setup
 // =====================================================
 
-bool setupEspNow() {
+bool setupEspNow()
+{
     WiFi.mode(WIFI_STA);
 
     Serial.print("Node MAC: ");
     Serial.println(WiFi.macAddress());
 
-    if (esp_now_init() != ESP_OK) {
+    if (esp_now_init() != ESP_OK)
+    {
         Serial.println("ERROR: ESP-NOW initialization failed");
         return false;
     }
@@ -517,7 +694,8 @@ bool setupEspNow() {
     peerInfo.channel = 0;
     peerInfo.encrypt = false;
 
-    if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+    if (esp_now_add_peer(&peerInfo) != ESP_OK)
+    {
         Serial.println("ERROR: Failed to add Base peer");
         return false;
     }
@@ -529,7 +707,8 @@ bool setupEspNow() {
 // Setup
 // =====================================================
 
-void setup() {
+void setup()
+{
     Serial.begin(115200);
     delay(1000);
 
@@ -538,6 +717,11 @@ void setup() {
     Serial.println("WeatherBus V1.0");
     Serial.printf("NODE ID: %u\n", NODE_ID);
     Serial.println("================================");
+
+    // Initialize I2C bus
+    Wire.begin(SHT41_SDA, SHT41_SCL);
+    Wire.setClock(100000);
+    delay(10);
 
     Serial.println();
     Serial.println("Sensor Configuration:");
@@ -552,8 +736,10 @@ void setup() {
 
     Serial.println();
 
-    if (ENABLE_SHT41) {
-        if (!setupSHT41()) {
+    if (ENABLE_SHT41)
+    {
+        if (!setupSHT41())
+        {
             Serial.println("SHT41 FAILED");
             Serial.println(
                 "SHT41 unavailable - continuing without temperature/humidity");
@@ -572,17 +758,21 @@ void setup() {
         }
     } */
 
-    if (ENABLE_BME280) {
-        if (!setupBME280()) {
+    if (ENABLE_BME280)
+    {
+        if (!setupBME280())
+        {
             Serial.println("BME280 FAILED");
             Serial.println("BME280 unavailable - continuing without pressure");
         }
     }
 
-    if (!setupEspNow()) {
+    if (!setupEspNow())
+    {
         Serial.println("SYSTEM HALTED");
 
-        while (true) {
+        while (true)
+        {
             delay(1000);
         }
     }
@@ -595,7 +785,8 @@ void setup() {
 // Loop
 // =====================================================
 
-void loop() {
+void loop()
+{
     // No polling required.
     //
     // Node responds only when a valid
