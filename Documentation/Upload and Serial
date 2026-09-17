@@ -1,0 +1,30 @@
+BASE MAC: 0c:4e:a0:4d:7c:40
+└── /dev/cu.usbmodem1401    
+
+NODE 1 MAC: 0c:4e:a0:4d:7c:44
+└── /dev/cu.usbmodem3201
+
+NODE  2 MAC: 9c:cc:01:7d:14:80
+└── /dev/cu.usbmodem1201     
+
+
+Upload Base
+pio run -t upload --upload-port /dev/cu.usbmodem1401
+
+Upload Node 1
+pio run -t upload --upload-port /dev/cu.usbmodem1301
+
+Upload Node 2
+pio run -t upload --upload-port /dev/cu.usbmodem1201
+
+
+Serial Monitor:
+
+Base
+pio device monitor -p /dev/cu.usbmodem1401 -b 115200
+
+Node1 
+pio device monitor -p /dev/cu.usbmodem1301 -b 115200
+
+Node2 
+pio device monitor -p /dev/cu.usbmodem1201 -b 115200
