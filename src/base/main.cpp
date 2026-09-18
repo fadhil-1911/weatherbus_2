@@ -57,6 +57,7 @@ void onDataReceived(const uint8_t* mac, const uint8_t* data, int len) {
 // =====================================================
 // Add all Node peers
 // =====================================================
+
 bool setupPeers() {
     for (uint8_t i = 0; i < nodeManager.getNodeCount(); i++) {
         NodeInfo* node = nodeManager.getNode(i);
@@ -81,6 +82,7 @@ bool setupPeers() {
 // =====================================================
 // ESP-NOW initialization
 // =====================================================
+
 bool setupEspNow() {
     WiFi.mode(WIFI_STA);
     Serial.print("Base MAC: ");
@@ -96,6 +98,7 @@ bool setupEspNow() {
 // =====================================================
 // Setup
 // =====================================================
+
 void setup() {
     Serial.begin(115200);
     delay(1000);
@@ -113,7 +116,6 @@ void setup() {
             delay(1000);
         }
     }
-
     Serial.println();
     Serial.println("ESP-NOW ready");
     pollingEngine.begin();
@@ -122,43 +124,24 @@ void setup() {
 // =====================================================
 // Main loop
 // =====================================================
-void loop() {
 
+void loop() {
     pollingEngine.update();
 
     static uint32_t lastSensorRead = 0;
 
     if (millis() - lastSensorRead >= 2000) {
-
         lastSensorRead = millis();
-
         WeatherBus::SensorDataPayload data{};
         uint8_t flags = 0;
-
-        localSensorManager.readSensors(
-            data,
-            flags);
+        localSensorManager.readSensors(data, flags);
 
         Serial.println();
         Serial.println("========== LOCAL SENSOR ==========");
-
-        Serial.printf(
-            "Flags       : 0x%02X\n",
-            flags);
-
-        Serial.printf(
-            "Temperature : %.2f C\n",
-            data.temperature);
-
-        Serial.printf(
-            "Humidity    : %.2f %%\n",
-            data.humidity);
-
-        Serial.printf(
-            "Pressure    : %.2f hPa\n",
-            data.pressure);
-
-        Serial.println(
-            "==================================");
+        Serial.printf("Flags : 0x%02X\n", flags);
+        Serial.printf("Temperature : %.2f C\n", data.temperature);
+        Serial.printf("Humidity    : %.2f %%\n", data.humidity);
+        Serial.printf("Pressure    : %.2f hPa\n", data.pressure);
+        Serial.println("==================================");
     }
 }

@@ -73,7 +73,6 @@ uint8_t sht41Crc8(const uint8_t* data, uint8_t length) {
 
     for (uint8_t i = 0; i < length; i++) {
         crc ^= data[i];
-
         for (uint8_t bit = 0; bit < 8; bit++) {
             if (crc & 0x80) {
                 crc = (crc << 1) ^ 0x31;
@@ -94,18 +93,14 @@ bool setupSHT41() {
     Wire.begin(SHT41_SDA, SHT41_SCL);
     Wire.setClock(100000);
     delay(10);
-
     Wire.beginTransmission(SHT41_ADDRESS);
     Wire.write(SHT41_MEASURE_HIGH_PRECISION);
-
     if (Wire.endTransmission() != 0) {
         Serial.println("ERROR: SHT41 communication failed");
         return false;
     }
-
     delay(10);
     Serial.println("SHT41 communication OK");
-
     return true;
 }
 
@@ -419,37 +414,20 @@ void sendSensorData(uint16_t requestSequence) {
 
     SensorDataPacket packet{};
 
-    packet.header.protocolVersion =
-        PROTOCOL_VERSION;
-
+    packet.header.protocolVersion = PROTOCOL_VERSION;
     packet.header.packetType =
         static_cast<uint8_t>(
             PacketType::SENSOR_DATA);
 
-    packet.header.nodeId =
-        NODE_ID;
-
-    packet.header.flags =
-        sensorFlags;
-
-    packet.header.sequence =
-        requestSequence;
-
-    packet.header.payloadLength =
-        sizeof(SensorDataPayload);
-
+    packet.header.nodeId = NODE_ID;
+    packet.header.flags = sensorFlags;
+    packet.header.sequence = requestSequence;
+    packet.header.payloadLength = sizeof(SensorDataPayload);
     packet.header.crc16 = 0;
-
     packet.header.reserved = 0;
-
-    packet.payload.temperature =
-        temperature;
-
-    packet.payload.humidity =
-        humidity;
-
-    packet.payload.pressure =
-        pressure;
+    packet.payload.temperature = temperature;
+    packet.payload.humidity = humidity;
+    packet.payload.pressure = pressure;
 
     // -------------------------------------------------
     // ESP-NOW transmission
