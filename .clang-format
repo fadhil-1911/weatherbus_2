@@ -1,0 +1,111 @@
+# ============================================================
+# WeatherBus V1.0
+# Arduino IDE-like formatting
+# ============================================================
+
+BasedOnStyle: LLVM
+
+# ------------------------------------------------------------
+# Indentation
+# ------------------------------------------------------------
+
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+
+# ------------------------------------------------------------
+# Line length
+# ------------------------------------------------------------
+
+# Do not force line wrapping.
+# This is important for Arduino-style compact code.
+
+ColumnLimit: 0
+
+# ------------------------------------------------------------
+# Braces
+# ------------------------------------------------------------
+
+# Arduino-like:
+#
+# void setup(){
+#     ...
+# }
+#
+# if (condition){
+#     ...
+# }
+
+BreakBeforeBraces: Attach
+
+# ------------------------------------------------------------
+# Short statements / functions
+# ------------------------------------------------------------
+
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: All
+AllowShortBlocksOnASingleLine: Never
+
+# ------------------------------------------------------------
+# Function arguments
+# ------------------------------------------------------------
+
+# Keep short function calls compact.
+
+BinPackArguments: true
+BinPackParameters: true
+
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+
+# ------------------------------------------------------------
+# Parentheses / spacing
+# ------------------------------------------------------------
+
+SpaceBeforeParens: ControlStatements
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+SpaceBeforeAssignmentOperators: true
+
+# ------------------------------------------------------------
+# Pointers / references
+# ------------------------------------------------------------
+
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+# ------------------------------------------------------------
+# Includes
+# ------------------------------------------------------------
+
+# Preserve Arduino / project include order.
+
+SortIncludes: Never
+IncludeBlocks: Preserve
+
+# ------------------------------------------------------------
+# Comments
+# ------------------------------------------------------------
+
+# Do not automatically reflow long WeatherBus comments.
+
+ReflowComments: false
+
+# ------------------------------------------------------------
+# C++ standard
+# ------------------------------------------------------------
+
+Standard: c++17
+
+# ------------------------------------------------------------
+# Miscellaneous
+# ------------------------------------------------------------
+
+AllowShortCaseLabelsOnASingleLine: false
+IndentCaseLabels: false
+
+KeepEmptyLinesAtTheStartOfBlocks: true
+KeepEmptyLinesAtEOF: false
+
+FixNamespaceComments: false

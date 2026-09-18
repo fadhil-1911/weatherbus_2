@@ -4,12 +4,9 @@
 #include "../common/weatherbus_protocol.h"
 
 class LocalSensorManager {
-
-public:
+  public:
     LocalSensorManager();
-
     bool begin();
-
     bool readSensors(
         WeatherBus::SensorDataPayload& data,
         uint8_t& flags);
@@ -21,8 +18,7 @@ public:
     bool readBME280(
         float& pressure);
 
-private:
-
+  private:
     bool setupSHT41();
     bool setupBME280();
     bool recoverBME280();

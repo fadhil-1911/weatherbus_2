@@ -14,9 +14,8 @@ using namespace WeatherBus;
 // Constructor
 // =====================================================
 
-PollingEngine::PollingEngine(NodeManager &manager)
-    : nodeManager(manager)
-{
+PollingEngine::PollingEngine(NodeManager& manager)
+    : nodeManager(manager) {
     state = State::IDLE;
 
     currentNodeIndex = 0;
@@ -42,8 +41,7 @@ PollingEngine::PollingEngine(NodeManager &manager)
 // Begin
 // =====================================================
 
-void PollingEngine::begin()
-{
+void PollingEngine::begin() {
     state = State::IDLE;
 
     stateTimestamp = millis();
@@ -61,16 +59,14 @@ void PollingEngine::begin()
 // ESP-NOW callback tidak lagi memanggil moveToNextNode().
 // =====================================================
 
-void PollingEngine::update()
-{
+void PollingEngine::update() {
     uint32_t now = millis();
 
     // -------------------------------------------------
     // Process pending ESP-NOW response
     // -------------------------------------------------
 
-    if (responsePending)
-    {
+    if (responsePending) {
         processPendingResponse();
 
         // Refresh time after processing response.
@@ -82,13 +78,11 @@ void PollingEngine::update()
     // State machine
     // -------------------------------------------------
 
-    switch (state)
-    {
+    switch (state) {
 
     case State::IDLE:
 
-        if (now - stateTimestamp >= POLL_INTERVAL_MS)
-        {
+        if (now - stateTimestamp >= POLL_INTERVAL_MS) {
             Serial.printf(
                 "POLL INTERVAL REACHED | now=%lu | last=%lu | delta=%lu\n",
                 now,
@@ -108,8 +102,7 @@ void PollingEngine::update()
 
     case State::WAIT_RESPONSE:
 
-        if (now - requestTimestamp >= RESPONSE_TIMEOUT_MS)
-        {
+        if (now - requestTimestamp >= RESPONSE_TIMEOUT_MS) {
             handleTimeout();
         }
 
@@ -121,13 +114,11 @@ void PollingEngine::update()
 // Send DATA_REQUEST
 // =====================================================
 
-void PollingEngine::sendRequest()
-{
-    NodeInfo *node =
+void PollingEngine::sendRequest() {
+    NodeInfo* node =
         nodeManager.getNode(currentNodeIndex);
 
-    if (node == nullptr)
-    {
+    if (node == nullptr) {
         moveToNextNode();
         return;
     }
@@ -169,11 +160,10 @@ void PollingEngine::sendRequest()
     esp_err_t result =
         esp_now_send(
             node->mac,
-            reinterpret_cast<uint8_t *>(&request),
+            reinterpret_cast<uint8_t*>(&request),
             sizeof(request));
 
-    if (result != ESP_OK)
-    {
+    if (result != ESP_OK) {
         Serial.printf(
             "TX ERROR: Node %u | ESP-NOW error %d\n",
             node->nodeId,
@@ -210,8 +200,7 @@ void PollingEngine::onSensorData(
     uint8_t flags,
     float temperature,
     float humidity,
-    float pressure)
-{
+    float pressure) {
     // -------------------------------------------------
     // Ignore if no request is currently active
     //
@@ -219,8 +208,7 @@ void PollingEngine::onSensorData(
     // Tidak mengubah stateTimestamp atau state.
     // -------------------------------------------------
 
-    if (state != State::WAIT_RESPONSE)
-    {
+    if (state != State::WAIT_RESPONSE) {
         Serial.println(
             "RX: Ignored response | No active request");
 
@@ -262,8 +250,7 @@ void PollingEngine::onSensorData(
 // Runs from main loop via update().
 // =====================================================
 
-void PollingEngine::processPendingResponse()
-{
+void PollingEngine::processPendingResponse() {
     // -------------------------------------------------
     // Take pending response
     // -------------------------------------------------
@@ -292,23 +279,21 @@ void PollingEngine::processPendingResponse()
     // State validation
     // -------------------------------------------------
 
-    if (state != State::WAIT_RESPONSE)
-    {
+    if (state != State::WAIT_RESPONSE) {
         Serial.println(
             "RX: Ignored response | No active request");
 
         return;
     }
 
-    NodeInfo *node =
+    NodeInfo* node =
         nodeManager.getNodeById(nodeId);
 
     // -------------------------------------------------
     // Validate Node ID
     // -------------------------------------------------
 
-    if (node == nullptr)
-    {
+    if (node == nullptr) {
         Serial.printf(
             "RX: Unknown Node %u\n",
             nodeId);
@@ -320,18 +305,16 @@ void PollingEngine::processPendingResponse()
     // Only accept response from current node
     // -------------------------------------------------
 
-    NodeInfo *currentNode =
+    NodeInfo* currentNode =
         nodeManager.getNode(
             currentNodeIndex);
 
-    if (currentNode == nullptr)
-    {
+    if (currentNode == nullptr) {
         return;
     }
 
     if (node->nodeId !=
-        currentNode->nodeId)
-    {
+        currentNode->nodeId) {
         Serial.printf(
             "RX: Unexpected Node %u\n",
             nodeId);
@@ -344,8 +327,7 @@ void PollingEngine::processPendingResponse()
     // -------------------------------------------------
 
     if (sequence !=
-        expectedSequence)
-    {
+        expectedSequence) {
         Serial.printf(
             "RX: Sequence mismatch | Expected %u | Received %u\n",
             expectedSequence,
@@ -360,8 +342,7 @@ void PollingEngine::processPendingResponse()
 
     if (!isfinite(temperature) ||
         temperature < -40.0f ||
-        temperature > 85.0f)
-    {
+        temperature > 85.0f) {
         Serial.printf(
             "RX: Invalid temperature | %.2f C\n",
             temperature);
@@ -375,8 +356,7 @@ void PollingEngine::processPendingResponse()
 
     if (!isfinite(humidity) ||
         humidity < 0.0f ||
-        humidity > 100.0f)
-    {
+        humidity > 100.0f) {
         Serial.printf(
             "RX: Invalid humidity | %.2f %%\n",
             humidity);
@@ -391,12 +371,10 @@ void PollingEngine::processPendingResponse()
     // -------------------------------------------------
 
     if (flags &
-        FLAG_PRESSURE_VALID)
-    {
+        FLAG_PRESSURE_VALID) {
         if (!isfinite(pressure) ||
             pressure < 300.0f ||
-            pressure > 1100.0f)
-        {
+            pressure > 1100.0f) {
             Serial.printf(
                 "RX: Invalid pressure | %.2f hPa\n",
                 pressure);
@@ -441,8 +419,7 @@ void PollingEngine::processPendingResponse()
         humidity);
 
     if (flags &
-        FLAG_PRESSURE_VALID)
-    {
+        FLAG_PRESSURE_VALID) {
         Serial.printf(
             "Pressure     : %.2f hPa\n",
             pressure);
@@ -470,14 +447,12 @@ void PollingEngine::processPendingResponse()
 // Handle timeout
 // =====================================================
 
-void PollingEngine::handleTimeout()
-{
-    NodeInfo *node =
+void PollingEngine::handleTimeout() {
+    NodeInfo* node =
         nodeManager.getNode(
             currentNodeIndex);
 
-    if (node != nullptr)
-    {
+    if (node != nullptr) {
         nodeManager.markOffline(
             node->nodeId);
 
@@ -494,13 +469,11 @@ void PollingEngine::handleTimeout()
 // Move to next node
 // =====================================================
 
-void PollingEngine::moveToNextNode()
-{
+void PollingEngine::moveToNextNode() {
     currentNodeIndex++;
 
     if (currentNodeIndex >=
-        nodeManager.getNodeCount())
-    {
+        nodeManager.getNodeCount()) {
         currentNodeIndex = 0;
     }
 
@@ -517,10 +490,6 @@ void PollingEngine::moveToNextNode()
     state =
         State::IDLE;
 }
-
-
-
-
 
 /*
 #include "polling_engine.h"

@@ -65,9 +65,6 @@ class PollingEngine {
     void handleTimeout();
 };
 
-
-
-
 /* 
 #pragma once
 

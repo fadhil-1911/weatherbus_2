@@ -18,7 +18,6 @@
 
 #include "local_sensor_manager.h"
 
-
 NodeManager nodeManager;
 LocalSensorManager localSensorManager; // local sensor manager instance
 PollingEngine pollingEngine(nodeManager);
@@ -118,7 +117,6 @@ void setup() {
     Serial.println();
     Serial.println("ESP-NOW ready");
     pollingEngine.begin();
-    
 }
 
 // =====================================================
