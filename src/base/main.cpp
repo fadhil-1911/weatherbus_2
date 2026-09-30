@@ -1,7 +1,7 @@
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //                    WeatherBus
 //                   Version: 1.0
-//             Last Updated: 2026-09-17
+//             Last Updated: 2026-09-30
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 /*
   Module  : Base Station - Main Application
@@ -18,9 +18,26 @@
 
 #include "local_sensor_manager.h"
 
+#include "SDLogger.h"
+
 NodeManager nodeManager;
 LocalSensorManager localSensorManager; // local sensor manager instance
 PollingEngine pollingEngine(nodeManager);
+
+// =====================================================
+// SD MODULE
+// =====================================================
+
+constexpr uint8_t SD_CS_PIN = 10;
+SDLogger sdLogger(SD_CS_PIN);
+
+volatile bool nodeLogPending = false;
+
+uint8_t pendingLogNodeId = 0;
+float pendingLogTemperature = 0.0f;
+float pendingLogHumidity = 0.0f;
+float pendingLogPressure = 0.0f;
+uint8_t pendingLogFlags = 0;
 
 // =====================================================
 // ESP-NOW RX callback
@@ -52,6 +69,15 @@ void onDataReceived(const uint8_t* mac, const uint8_t* data, int len) {
         packet.payload.temperature,
         packet.payload.humidity,
         packet.payload.pressure);
+
+    // LOGGING TO SD CARD
+    pendingLogNodeId = packet.header.nodeId;
+    pendingLogTemperature = packet.payload.temperature;
+    pendingLogHumidity = packet.payload.humidity;
+    pendingLogPressure = packet.payload.pressure;
+    pendingLogFlags = packet.header.flags;
+
+    nodeLogPending = true;
 }
 
 // =====================================================
@@ -110,6 +136,10 @@ void setup() {
     nodeManager.begin();
     localSensorManager.begin(); // Initialize the local sensor manager
 
+    if (!sdLogger.begin()) {
+        Serial.println(F("[SD] Logger unavailable"));
+    }
+
     if (!setupEspNow()) {
         Serial.println("SYSTEM HALTED");
         while (true) {
@@ -128,6 +158,28 @@ void setup() {
 void loop() {
     pollingEngine.update();
 
+    if (nodeLogPending) {
+        nodeLogPending = false;
+
+        char timestamp[20];
+
+        snprintf(
+            timestamp,
+            sizeof(timestamp),
+            "UPTIME_%lu",
+            millis());
+
+        if (sdLogger.logSensorData(
+                timestamp,
+                pendingLogNodeId,
+                pendingLogTemperature,
+                pendingLogHumidity,
+                pendingLogPressure,
+                pendingLogFlags)) {
+            Serial.println(F("[SD] Node sensor logged"));
+        }
+    }
+
     static uint32_t lastSensorRead = 0;
 
     if (millis() - lastSensorRead >= 2000) {
@@ -143,5 +195,24 @@ void loop() {
         Serial.printf("Humidity    : %.2f %%\n", data.humidity);
         Serial.printf("Pressure    : %.2f hPa\n", data.pressure);
         Serial.println("==================================");
+
+        // SD logging
+        char timestamp[20];
+
+        snprintf(
+            timestamp,
+            sizeof(timestamp),
+            "UPTIME_%lu",
+            millis());
+
+        if (sdLogger.logSensorData(
+                timestamp,
+                0,
+                data.temperature,
+                data.humidity,
+                data.pressure,
+                flags)) {
+            Serial.println(F("[SD] Local sensor logged"));
+        }
     }
 }
