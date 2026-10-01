@@ -1,12 +1,12 @@
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //                    WeatherBus
 //                   Version: 1.0
-//             Last Updated: 2026-09-30
+//             Last Updated: 2026-10-01
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 /*
   Module  : Base Station - Main Application
   Transport : ESP-NOW
-  Phase   : 
+  Phase   : RTC and SD Card Integration
 */
 
 #include <Arduino.h>
@@ -15,6 +15,7 @@
 #include "../common/weatherbus_protocol.h"
 #include "node_manager.h"
 #include "polling_engine.h"
+#include "RTCManager.h"
 
 #include "local_sensor_manager.h"
 
@@ -30,6 +31,30 @@ PollingEngine pollingEngine(nodeManager);
 
 constexpr uint8_t SD_CS_PIN = 10;
 SDLogger sdLogger(SD_CS_PIN);
+
+// =====================================================
+// RTC TIMESTAMP
+// =====================================================
+
+void getTimestamp(char* buffer, size_t bufferSize) {
+
+    DateTime now = rtc.now();
+
+    snprintf(
+        buffer,
+        bufferSize,
+        "%04d-%02d-%02d %02d:%02d:%02d",
+        now.year(),
+        now.month(),
+        now.day(),
+        now.hour(),
+        now.minute(),
+        now.second());
+}
+
+// =====================================================
+// Node log pending/buffer
+// =====================================================
 
 volatile bool nodeLogPending = false;
 
@@ -127,19 +152,37 @@ bool setupEspNow() {
 
 void setup() {
     Serial.begin(115200);
-    delay(1000);
+
     Serial.println();
     Serial.println("================================");
     Serial.println("WeatherBus V1.0");
     Serial.println("================================");
     Serial.println();
+
     nodeManager.begin();
-    localSensorManager.begin(); // Initialize the local sensor manager
+
+    if (!localSensorManager.begin()) {
+        Serial.println("ERROR: Local Sensor Manager initialization failed");
+    }
 
     if (!sdLogger.begin()) {
         Serial.println(F("[SD] Logger unavailable"));
     }
 
+    // Initialize RTC
+    if (rtc.begin()) {
+        Serial.println("RTC: BEGIN OK");
+        // Set RTC using compile date/time ONE TIME ONLY
+        //rtc.setDateTime(DateTime(F(__DATE__), F(__TIME__)));
+
+        if (rtc.update()) {
+            Serial.println("RTC: UPDATE OK");
+        } else {
+            Serial.println("RTC: UPDATE FAILED");
+        }
+    }
+
+    // Initialize ESP-NOW
     if (!setupEspNow()) {
         Serial.println("SYSTEM HALTED");
         while (true) {
@@ -149,6 +192,8 @@ void setup() {
     Serial.println();
     Serial.println("ESP-NOW ready");
     pollingEngine.begin();
+
+    delay(5000);
 }
 
 // =====================================================
@@ -158,16 +203,37 @@ void setup() {
 void loop() {
     pollingEngine.update();
 
+    static unsigned long lastUpdate = 0;
+    unsigned long currentMillis = millis();
+    // Update RTC every second
+    if (currentMillis - lastUpdate >= 1000) {
+        lastUpdate = currentMillis;
+        rtc.update();
+        if (!rtc.isOK()) {
+            Serial.println(F("RTC ERROR"));
+            return;
+        }
+
+        /*
+        DateTime now = rtc.now();
+        // Print time
+        Serial.print(now.hour());
+        Serial.print(':');
+        Serial.print(now.minute());
+        Serial.print(':');
+        Serial.println(now.second()); */
+    }
+
+    // ======================= SD LOGGING ===========================
+    // node
     if (nodeLogPending) {
         nodeLogPending = false;
 
         char timestamp[20];
 
-        snprintf(
+        getTimestamp(
             timestamp,
-            sizeof(timestamp),
-            "UPTIME_%lu",
-            millis());
+            sizeof(timestamp));
 
         if (sdLogger.logSensorData(
                 timestamp,
@@ -180,6 +246,7 @@ void loop() {
         }
     }
 
+    // ======================= LOCAL SENSOR ===========================
     static uint32_t lastSensorRead = 0;
 
     if (millis() - lastSensorRead >= 2000) {
@@ -199,11 +266,9 @@ void loop() {
         // SD logging
         char timestamp[20];
 
-        snprintf(
+        getTimestamp(
             timestamp,
-            sizeof(timestamp),
-            "UPTIME_%lu",
-            millis());
+            sizeof(timestamp));
 
         if (sdLogger.logSensorData(
                 timestamp,

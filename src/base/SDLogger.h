@@ -1,3 +1,6 @@
+// =====================================================
+// File: src/base/SDLogger.h
+// =====================================================
 
 #pragma once
 
@@ -25,10 +28,8 @@ private:
 
     SdFat sd;
     FsFile logFile;
-
     uint8_t csPin;
     bool sdStatus;
-
     bool createLogFile();
 };
 

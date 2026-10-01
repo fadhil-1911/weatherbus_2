@@ -1,5 +1,8 @@
-#include "local_sensor_manager.h"
+// =====================================================
+// File: src/base/local_sensor_manager.cpp
+// =====================================================
 
+#include "local_sensor_manager.h"
 #include <Wire.h>
 #include <Adafruit_BME280.h>
 #include <Adafruit_Sensor.h>
@@ -215,7 +218,13 @@ bool LocalSensorManager::begin() {
         }
     }
     Serial.println();
-    return true;
+    // -------------------------------------------------
+    // Initialization status
+    // -------------------------------------------------
+
+    return (
+        (!ENABLE_SHT41 || sht41Available) &&
+        (!ENABLE_BME280 || bme280Available));
 }
 
 // =====================================================

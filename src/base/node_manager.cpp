@@ -1,3 +1,7 @@
+// =====================================================
+// File: src/base/node_manager.cpp
+// =====================================================
+
 #include "node_manager.h"
 
 NodeManager::NodeManager() {
