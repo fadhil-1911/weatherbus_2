@@ -5,7 +5,7 @@
 #include "polling_engine.h"
 
 #include <cmath>
-#include "transport/Transport.h"
+//#include "transport/Transport.h"
 #include "../common/weatherbus_protocol.h"
 
 using namespace WeatherBus;
@@ -16,7 +16,7 @@ using namespace WeatherBus;
 
 PollingEngine::PollingEngine(
     NodeManager& manager,
-    Transport& transport)
+    ITransport& transport)
     : nodeManager(manager),
       transport(transport) {
     state = State::IDLE;

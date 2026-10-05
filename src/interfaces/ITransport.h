@@ -19,10 +19,10 @@ struct TransportAddress
 using TransportReceiveCallback =
     void (*)(const uint8_t* data, size_t length);
 
-class Transport
+class ITransport
 {
 public:
-    virtual ~Transport() = default;
+    virtual ~ITransport() = default;
 
     virtual bool begin(
         TransportReceiveCallback callback) = 0;

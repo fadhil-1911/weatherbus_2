@@ -6,13 +6,14 @@
 
 #include <Arduino.h>
 #include "node_manager.h"
-#include "transport/Transport.h"
+//#include "transport/Transport.h"
+#include "../interfaces/ITransport.h"
 
 class PollingEngine {
   public:
     PollingEngine(
         NodeManager& manager,
-        Transport& transport);
+        ITransport& transport);
 
     void begin();
     void update();
@@ -34,7 +35,7 @@ class PollingEngine {
     };
 
     NodeManager& nodeManager;
-    Transport& transport;
+    ITransport& transport;
 
     State state;
 

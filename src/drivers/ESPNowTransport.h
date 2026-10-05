@@ -1,9 +1,10 @@
 #pragma once
 
-#include "Transport.h"
+#include "../interfaces/ITransport.h"
 
-class ESPNowTransport : public Transport {
-  public:
+class ESPNowTransport : public ITransport
+{
+public:
     ESPNowTransport();
 
     bool begin(
@@ -21,7 +22,7 @@ class ESPNowTransport : public Transport {
 
     bool isReady() const override;
 
-  private:
+private:
     static constexpr uint8_t ESP_NOW_ADDRESS_LENGTH = 6;
 
     TransportReceiveCallback receiveCallback;
