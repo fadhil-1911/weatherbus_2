@@ -16,10 +16,10 @@
 #include "node_manager.h"
 #include "polling_engine.h"
 #include "hardware/RTCManager.h"
-#include "hardware/local_sensor_manager.h"
+#include "../services/LocalSensorService.h"
+#include "../drivers/SHT41Source.h"
 #include "hardware/SDLogger.h"
 #include "../drivers/ESPNowTransport.h"
-
 
 NodeManager nodeManager;
 ESPNowTransport transport;
@@ -28,7 +28,10 @@ PollingEngine pollingEngine(
     nodeManager,
     transport);
 
-LocalSensorManager localSensorManager;
+SHT41Source sht41Source;
+
+LocalSensorService localSensorService(
+    sht41Source);
 
 // =====================================================
 // SD MODULE
@@ -239,10 +242,9 @@ void setup() {
 
     nodeManager.begin();
 
-    if (!localSensorManager.begin()) {
-
+    if (!localSensorService.begin()) {
         Serial.println(
-            "ERROR: Local Sensor Manager initialization failed");
+            "ERROR: Local Sensor Service initialization failed");
     }
 
     if (!sdLogger.begin()) {
@@ -380,7 +382,7 @@ void loop() {
 
         uint8_t flags = 0;
 
-        localSensorManager.readSensors(
+        localSensorService.readSensors(
             data,
             flags);
 
