@@ -1,3 +1,7 @@
+// =====================================================
+// File: src/drivers/ESPNowTransport.cpp
+// =====================================================
+
 #include "ESPNowTransport.h"
 
 #include <WiFi.h>
@@ -11,8 +15,7 @@ ESPNowTransport* ESPNowTransport::instance = nullptr;
 
 ESPNowTransport::ESPNowTransport()
     : receiveCallback(nullptr),
-      ready(false)
-{
+      ready(false) {
     instance = this;
 }
 
@@ -21,8 +24,7 @@ ESPNowTransport::ESPNowTransport()
 // =====================================================
 
 bool ESPNowTransport::begin(
-    TransportReceiveCallback callback)
-{
+    TransportReceiveCallback callback) {
     receiveCallback = callback;
 
     WiFi.mode(WIFI_STA);
@@ -54,19 +56,16 @@ bool ESPNowTransport::begin(
 // =====================================================
 
 bool ESPNowTransport::addPeer(
-    const TransportAddress& address)
-{
+    const TransportAddress& address) {
     if (!ready) {
         Serial.println(
             "ERROR: ESP-NOW transport not ready");
-
         return false;
     }
 
     if (address.length != ESP_NOW_ADDRESS_LENGTH) {
         Serial.println(
             "ERROR: Invalid ESP-NOW address length");
-
         return false;
     }
 
@@ -104,26 +103,22 @@ bool ESPNowTransport::addPeer(
 bool ESPNowTransport::send(
     const TransportAddress& destination,
     const uint8_t* data,
-    size_t length)
-{
+    size_t length) {
     if (!ready) {
         Serial.println(
             "ERROR: ESP-NOW transport not ready");
-
         return false;
     }
 
     if (destination.length != ESP_NOW_ADDRESS_LENGTH) {
         Serial.println(
             "ERROR: Invalid ESP-NOW destination");
-
         return false;
     }
 
     if (data == nullptr || length == 0) {
         Serial.println(
             "ERROR: Invalid transport data");
-
         return false;
     }
 
@@ -137,10 +132,8 @@ bool ESPNowTransport::send(
         Serial.printf(
             "ESP-NOW TX ERROR: %d\n",
             result);
-
         return false;
     }
-
     return true;
 }
 
@@ -148,8 +141,7 @@ bool ESPNowTransport::send(
 // Update
 // =====================================================
 
-void ESPNowTransport::update()
-{
+void ESPNowTransport::update() {
     // ESP-NOW is callback-driven.
     // No periodic processing is required here.
 }
@@ -158,8 +150,7 @@ void ESPNowTransport::update()
 // Status
 // =====================================================
 
-bool ESPNowTransport::isReady() const
-{
+bool ESPNowTransport::isReady() const {
     return ready;
 }
 
@@ -170,8 +161,7 @@ bool ESPNowTransport::isReady() const
 void ESPNowTransport::onDataReceived(
     const uint8_t* mac,
     const uint8_t* data,
-    int len)
-{
+    int len) {
     (void)mac;
 
     if (instance == nullptr) {
@@ -193,8 +183,7 @@ void ESPNowTransport::onDataReceived(
 
 void ESPNowTransport::handleReceive(
     const uint8_t* data,
-    size_t length)
-{
+    size_t length) {
     if (receiveCallback == nullptr) {
         return;
     }

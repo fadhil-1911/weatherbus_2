@@ -1,9 +1,12 @@
+// =====================================================
+// File: src/interfaces/ISensorSource.h
+// =====================================================
+
 #pragma once
 
 #include <Arduino.h>
 
-struct SensorReading
-{
+struct SensorReading {
     float temperature;
     float humidity;
     float pressure;
@@ -18,14 +21,12 @@ struct SensorReading
           pressure(0.0f),
           temperatureValid(false),
           humidityValid(false),
-          pressureValid(false)
-    {
+          pressureValid(false) {
     }
 };
 
-class ISensorSource
-{
-public:
+class ISensorSource {
+  public:
     virtual ~ISensorSource() = default;
 
     virtual bool begin() = 0;

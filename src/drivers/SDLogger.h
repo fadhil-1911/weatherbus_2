@@ -6,8 +6,9 @@
 
 #include <Arduino.h>
 #include <SdFat.h>
+#include "../interfaces/IDataLogger.h"
 
-class SDLogger
+class SDLogger : public IDataLogger
 {
 public:
     explicit SDLogger(uint8_t csPin);
@@ -21,7 +22,7 @@ public:
         float temperature,
         float humidity,
         float pressure,
-        uint8_t flags);
+        uint8_t flags) override;
 
 private:
     static constexpr const char* LOG_FILE = "log_wb2.csv";

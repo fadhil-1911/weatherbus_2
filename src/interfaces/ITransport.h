@@ -1,9 +1,12 @@
+// =====================================================
+// File: src/interfaces/ITransport.h
+// =====================================================
+
 #pragma once
 
 #include <Arduino.h>
 
-struct TransportAddress
-{
+struct TransportAddress {
     static constexpr uint8_t MAX_LENGTH = 8;
 
     uint8_t data[MAX_LENGTH];
@@ -11,17 +14,15 @@ struct TransportAddress
 
     TransportAddress()
         : data{},
-          length(0)
-    {
+          length(0) {
     }
 };
 
 using TransportReceiveCallback =
     void (*)(const uint8_t* data, size_t length);
 
-class ITransport
-{
-public:
+class ITransport {
+  public:
     virtual ~ITransport() = default;
 
     virtual bool begin(

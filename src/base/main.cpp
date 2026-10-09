@@ -1,11 +1,10 @@
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //                    WeatherBus
 //                   Version: 1.0
-//             Last Updated: 2026-10-01
+//             Last Updated: 2026-10-09
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 /*
-  Module  : Base Station - Main Application
-  Transport : Abstract Transport
+  Module  : Base Station - Main Application: 
   Phase   : 
 */
 
@@ -15,14 +14,16 @@
 
 #include "node_manager.h"
 #include "polling_engine.h"
-#include "hardware/RTCManager.h"
+#include "../drivers/RTCClock.h"
 #include "../services/LocalSensorService.h"
 #include "../drivers/SHT41Source.h"
-#include "hardware/SDLogger.h"
+#include "../drivers/SDLogger.h"
+#include "../interfaces/IDataLogger.h"
 #include "../drivers/ESPNowTransport.h"
 
 NodeManager nodeManager;
 ESPNowTransport transport;
+RTCClock rtcClock;
 
 PollingEngine pollingEngine(
     nodeManager,
@@ -30,8 +31,7 @@ PollingEngine pollingEngine(
 
 SHT41Source sht41Source;
 
-LocalSensorService localSensorService(
-    sht41Source);
+LocalSensorService localSensorService(sht41Source);
 
 // =====================================================
 // SD MODULE
@@ -40,6 +40,7 @@ LocalSensorService localSensorService(
 constexpr uint8_t SD_CS_PIN = 10;
 
 SDLogger sdLogger(SD_CS_PIN);
+IDataLogger& dataLogger = sdLogger;
 
 // =====================================================
 // RTC TIMESTAMP
@@ -48,7 +49,7 @@ SDLogger sdLogger(SD_CS_PIN);
 void getTimestamp(
     char* buffer,
     size_t bufferSize) {
-    DateTime now = rtc.now();
+    DateTime now = rtcClock.now();
 
     snprintf(
         buffer,
@@ -95,10 +96,7 @@ void onTransportDataReceived(
 
     WeatherBus::SensorDataPacket packet{};
 
-    memcpy(
-        &packet,
-        data,
-        sizeof(packet));
+    memcpy(&packet, data, sizeof(packet));
 
     if (packet.header.protocolVersion !=
         WeatherBus::PROTOCOL_VERSION) {
@@ -143,21 +141,11 @@ void onTransportDataReceived(
     // SD writing berlaku dalam main loop.
     // -------------------------------------------------
 
-    pendingLogNodeId =
-        packet.header.nodeId;
-
-    pendingLogTemperature =
-        packet.payload.temperature;
-
-    pendingLogHumidity =
-        packet.payload.humidity;
-
-    pendingLogPressure =
-        packet.payload.pressure;
-
-    pendingLogFlags =
-        packet.header.flags;
-
+    pendingLogNodeId = packet.header.nodeId;
+    pendingLogTemperature = packet.payload.temperature;
+    pendingLogHumidity = packet.payload.humidity;
+    pendingLogPressure = packet.payload.pressure;
+    pendingLogFlags = packet.header.flags;
     nodeLogPending = true;
 }
 
@@ -173,15 +161,12 @@ bool setupPeers() {
          i < nodeManager.getNodeCount();
          i++) {
 
-        NodeInfo* node =
-            nodeManager.getNode(i);
+        NodeInfo* node = nodeManager.getNode(i);
 
         if (node == nullptr) {
             continue;
         }
-
         TransportAddress address{};
-
         address.length = 6;
 
         memcpy(
@@ -190,19 +175,15 @@ bool setupPeers() {
             address.length);
 
         if (!transport.addPeer(address)) {
-
             Serial.printf(
                 "ERROR: Failed to add Node %u\n",
                 node->nodeId);
-
             return false;
         }
-
         Serial.printf(
             "Peer added: Node %u\n",
             node->nodeId);
     }
-
     return true;
 }
 
@@ -211,19 +192,14 @@ bool setupPeers() {
 // =====================================================
 
 bool setupTransport() {
-    if (!transport.begin(
-            onTransportDataReceived)) {
-
+    if (!transport.begin(onTransportDataReceived)) {
         Serial.println(
             "ERROR: Transport initialization failed");
-
         return false;
     }
-
     if (!setupPeers()) {
         return false;
     }
-
     return true;
 }
 
@@ -247,8 +223,7 @@ void setup() {
             "ERROR: Local Sensor Service initialization failed");
     }
 
-    if (!sdLogger.begin()) {
-
+    if (!dataLogger.begin()) {
         Serial.println(
             F("[SD] Logger unavailable"));
     }
@@ -257,8 +232,7 @@ void setup() {
     // Initialize RTC
     // -------------------------------------------------
 
-    if (rtc.begin()) {
-
+    if (rtcClock.begin()) {
         Serial.println(
             "RTC: BEGIN OK");
 
@@ -266,13 +240,10 @@ void setup() {
         // rtc.setDateTime(
         //     DateTime(F(__DATE__), F(__TIME__)));
 
-        if (rtc.update()) {
-
+        if (rtcClock.update()) {
             Serial.println(
                 "RTC: UPDATE OK");
-
         } else {
-
             Serial.println(
                 "RTC: UPDATE FAILED");
         }
@@ -323,20 +294,14 @@ void loop() {
 
     static unsigned long lastUpdate = 0;
 
-    unsigned long currentMillis =
-        millis();
+    unsigned long currentMillis = millis();
 
     if (currentMillis - lastUpdate >= 1000) {
-
         lastUpdate = currentMillis;
-
-        rtc.update();
-
-        if (!rtc.isOK()) {
-
+        rtcClock.update();
+        if (!rtcClock.isOK()) {
             Serial.println(
                 F("RTC ERROR"));
-
             return;
         }
     }
@@ -346,16 +311,10 @@ void loop() {
     // =================================================
 
     if (nodeLogPending) {
-
         nodeLogPending = false;
-
         char timestamp[20];
-
-        getTimestamp(
-            timestamp,
-            sizeof(timestamp));
-
-        if (sdLogger.logSensorData(
+        getTimestamp(timestamp, sizeof(timestamp));
+        if (dataLogger.logSensorData(
                 timestamp,
                 pendingLogNodeId,
                 pendingLogTemperature,
@@ -375,16 +334,10 @@ void loop() {
     static uint32_t lastSensorRead = 0;
 
     if (millis() - lastSensorRead >= 2000) {
-
         lastSensorRead = millis();
-
         WeatherBus::SensorDataPayload data{};
-
         uint8_t flags = 0;
-
-        localSensorService.readSensors(
-            data,
-            flags);
+        localSensorService.readSensors(data, flags);
 
         Serial.println();
         Serial.println(
@@ -415,11 +368,11 @@ void loop() {
 
         char timestamp[20];
 
-        getTimestamp(
+        getTimestamp(timestamp, sizeof(timestamp));
             timestamp,
             sizeof(timestamp));
 
-        if (sdLogger.logSensorData(
+        if (dataLogger.logSensorData(
                 timestamp,
                 0,
                 data.temperature,
@@ -432,281 +385,3 @@ void loop() {
         }
     }
 }
-
-// espnow version
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-//                    WeatherBus
-//                   Version: 1.0
-//             Last Updated: 2026-10-01
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-/*
-  Module  : Base Station - Main Application
-  Transport : ESP-NOW
-  Phase   : RTC and SD Card Integration
-*/
-/*
-#include <Arduino.h>
-#include <WiFi.h>
-#include <esp_now.h>
-#include "../common/weatherbus_protocol.h"
-#include "node_manager.h"
-#include "polling_engine.h"
-#include "RTCManager.h"
-
-#include "local_sensor_manager.h"
-
-#include "SDLogger.h"
-
-NodeManager nodeManager;
-LocalSensorManager localSensorManager; // local sensor manager instance
-PollingEngine pollingEngine(nodeManager);
-
-// =====================================================
-// SD MODULE
-// =====================================================
-
-constexpr uint8_t SD_CS_PIN = 10;
-SDLogger sdLogger(SD_CS_PIN);
-
-// =====================================================
-// RTC TIMESTAMP
-// =====================================================
-
-void getTimestamp(char* buffer, size_t bufferSize) {
-
-    DateTime now = rtc.now();
-
-    snprintf(
-        buffer,
-        bufferSize,
-        "%04d-%02d-%02d %02d:%02d:%02d",
-        now.year(),
-        now.month(),
-        now.day(),
-        now.hour(),
-        now.minute(),
-        now.second());
-}
-
-// =====================================================
-// Node log pending/buffer
-// =====================================================
-
-volatile bool nodeLogPending = false;
-
-uint8_t pendingLogNodeId = 0;
-float pendingLogTemperature = 0.0f;
-float pendingLogHumidity = 0.0f;
-float pendingLogPressure = 0.0f;
-uint8_t pendingLogFlags = 0;
-
-// =====================================================
-// ESP-NOW RX callback
-// =====================================================
-
-void onDataReceived(const uint8_t* mac, const uint8_t* data, int len) {
-    if (len != sizeof(WeatherBus::SensorDataPacket)) {
-        Serial.println("RX: Invalid packet size");
-        return;
-    }
-    WeatherBus::SensorDataPacket packet{};
-    memcpy(&packet, data, sizeof(packet));
-    if (packet.header.protocolVersion != WeatherBus::PROTOCOL_VERSION) {
-        Serial.println("RX: Invalid protocol version");
-        return;
-    }
-    if (packet.header.packetType != static_cast<uint8_t>(WeatherBus::PacketType::SENSOR_DATA)) {
-        Serial.println("RX: Unexpected packet type");
-        return;
-    }
-    if (packet.header.payloadLength != sizeof(WeatherBus::SensorDataPayload)) {
-        Serial.println("RX: Invalid payload length");
-        return;
-    }
-    pollingEngine.onSensorData(
-        packet.header.nodeId,
-        packet.header.sequence,
-        packet.header.flags,
-        packet.payload.temperature,
-        packet.payload.humidity,
-        packet.payload.pressure);
-
-    // LOGGING TO SD CARD
-    pendingLogNodeId = packet.header.nodeId;
-    pendingLogTemperature = packet.payload.temperature;
-    pendingLogHumidity = packet.payload.humidity;
-    pendingLogPressure = packet.payload.pressure;
-    pendingLogFlags = packet.header.flags;
-
-    nodeLogPending = true;
-}
-
-// =====================================================
-// Add all Node peers
-// =====================================================
-
-bool setupPeers() {
-    for (uint8_t i = 0; i < nodeManager.getNodeCount(); i++) {
-        NodeInfo* node = nodeManager.getNode(i);
-        if (node == nullptr) {
-            continue;
-        }
-
-        esp_now_peer_info_t peerInfo{};
-        memcpy(peerInfo.peer_addr, node->mac, 6);
-        peerInfo.channel = 0;
-        peerInfo.encrypt = false;
-        esp_err_t result = esp_now_add_peer(&peerInfo);
-        if (result != ESP_OK) {
-            Serial.printf("ERROR: Failed to add Node %u | %d\n", node->nodeId, result);
-            return false;
-        }
-        Serial.printf("Peer added: Node %u\n", node->nodeId);
-    }
-    return true;
-}
-
-// =====================================================
-// ESP-NOW initialization
-// =====================================================
-
-bool setupEspNow() {
-    WiFi.mode(WIFI_STA);
-    Serial.print("Base MAC: ");
-    Serial.println(WiFi.macAddress());
-    if (esp_now_init() != ESP_OK) {
-        Serial.println("ERROR: ESP-NOW initialization failed");
-        return false;
-    }
-    esp_now_register_recv_cb(onDataReceived);
-    return setupPeers();
-}
-
-// =====================================================
-// Setup
-// =====================================================
-
-void setup() {
-    Serial.begin(115200);
-
-    Serial.println();
-    Serial.println("================================");
-    Serial.println("WeatherBus V1.0");
-    Serial.println("================================");
-    Serial.println();
-
-    nodeManager.begin();
-
-    if (!localSensorManager.begin()) {
-        Serial.println("ERROR: Local Sensor Manager initialization failed");
-    }
-
-    if (!sdLogger.begin()) {
-        Serial.println(F("[SD] Logger unavailable"));
-    }
-
-    // Initialize RTC
-    if (rtc.begin()) {
-        Serial.println("RTC: BEGIN OK");
-        // Set RTC using compile date/time ONE TIME ONLY
-        //rtc.setDateTime(DateTime(F(__DATE__), F(__TIME__)));
-
-        if (rtc.update()) {
-            Serial.println("RTC: UPDATE OK");
-        } else {
-            Serial.println("RTC: UPDATE FAILED");
-        }
-    }
-
-    // Initialize ESP-NOW
-    if (!setupEspNow()) {
-        Serial.println("SYSTEM HALTED");
-        while (true) {
-            delay(1000);
-        }
-    }
-    Serial.println();
-    Serial.println("ESP-NOW ready");
-    pollingEngine.begin();
-
-    delay(5000);
-}
-
-// =====================================================
-// Main loop
-// =====================================================
-
-void loop() {
-    pollingEngine.update();
-
-    static unsigned long lastUpdate = 0;
-    unsigned long currentMillis = millis();
-    // Update RTC every second
-    if (currentMillis - lastUpdate >= 1000) {
-        lastUpdate = currentMillis;
-        rtc.update();
-        if (!rtc.isOK()) {
-            Serial.println(F("RTC ERROR"));
-            return;
-        }
-
-
-    }
-
-    // ======================= SD LOGGING ===========================
-    // node
-    if (nodeLogPending) {
-        nodeLogPending = false;
-
-        char timestamp[20];
-
-        getTimestamp(
-            timestamp,
-            sizeof(timestamp));
-
-        if (sdLogger.logSensorData(
-                timestamp,
-                pendingLogNodeId,
-                pendingLogTemperature,
-                pendingLogHumidity,
-                pendingLogPressure,
-                pendingLogFlags)) {
-            Serial.println(F("[SD] Node sensor logged"));
-        }
-    }
-
-    // ======================= LOCAL SENSOR ===========================
-    static uint32_t lastSensorRead = 0;
-
-    if (millis() - lastSensorRead >= 2000) {
-        lastSensorRead = millis();
-        WeatherBus::SensorDataPayload data{};
-        uint8_t flags = 0;
-        localSensorManager.readSensors(data, flags);
-
-        Serial.println();
-        Serial.println("========== LOCAL SENSOR ==========");
-        Serial.printf("Flags : 0x%02X\n", flags);
-        Serial.printf("Temperature : %.2f C\n", data.temperature);
-        Serial.printf("Humidity    : %.2f %%\n", data.humidity);
-        Serial.printf("Pressure    : %.2f hPa\n", data.pressure);
-        Serial.println("==================================");
-
-        // SD logging
-        char timestamp[20];
-
-        getTimestamp(
-            timestamp,
-            sizeof(timestamp));
-
-        if (sdLogger.logSensorData(
-                timestamp,
-                0,
-                data.temperature,
-                data.humidity,
-                data.pressure,
-                flags)) {
-            Serial.println(F("[SD] Local sensor logged"));
-        }
-    }
-} */

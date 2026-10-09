@@ -1,17 +1,20 @@
+// =====================================================
+// File: src/drivers/SHT41Source.h
+// =====================================================
+
 #pragma once
 
 #include <Arduino.h>
 #include "../interfaces/ISensorSource.h"
 
-class SHT41Source : public ISensorSource
-{
-public:
+class SHT41Source : public ISensorSource {
+  public:
     SHT41Source();
 
     bool begin() override;
     bool read(SensorReading& reading) override;
 
-private:
+  private:
     bool setupSHT41();
 
     bool readSHT41(
@@ -22,6 +25,6 @@ private:
         const uint8_t* data,
         uint8_t length);
 
-private:
+  private:
     bool available;
 };

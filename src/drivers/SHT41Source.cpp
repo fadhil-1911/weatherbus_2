@@ -1,3 +1,7 @@
+// =====================================================
+// File: src/drivers/SHT41Source.cpp
+// =====================================================
+
 #include "SHT41Source.h"
 
 #include <Wire.h>
@@ -6,13 +10,12 @@
 // SHT41 CONFIGURATION
 // =====================================================
 
-namespace
-{
-    constexpr uint8_t SHT41_ADDRESS = 0x44;
-    constexpr uint8_t SHT41_SDA = 8;
-    constexpr uint8_t SHT41_SCL = 9;
+namespace {
+constexpr uint8_t SHT41_ADDRESS = 0x44;
+constexpr uint8_t SHT41_SDA = 8;
+constexpr uint8_t SHT41_SCL = 9;
 
-    constexpr uint8_t SHT41_MEASURE_HIGH_PRECISION = 0xFD;
+constexpr uint8_t SHT41_MEASURE_HIGH_PRECISION = 0xFD;
 }
 
 // =====================================================
@@ -20,8 +23,7 @@ namespace
 // =====================================================
 
 SHT41Source::SHT41Source()
-    : available(false)
-{
+    : available(false) {
 }
 
 // =====================================================
@@ -31,22 +33,16 @@ SHT41Source::SHT41Source()
 
 uint8_t SHT41Source::sht41Crc8(
     const uint8_t* data,
-    uint8_t length)
-{
+    uint8_t length) {
     uint8_t crc = 0xFF;
 
-    for (uint8_t i = 0; i < length; i++)
-    {
+    for (uint8_t i = 0; i < length; i++) {
         crc ^= data[i];
 
-        for (uint8_t bit = 0; bit < 8; bit++)
-        {
-            if (crc & 0x80)
-            {
+        for (uint8_t bit = 0; bit < 8; bit++) {
+            if (crc & 0x80) {
                 crc = (crc << 1) ^ 0x31;
-            }
-            else
-            {
+            } else {
                 crc <<= 1;
             }
         }
@@ -59,8 +55,7 @@ uint8_t SHT41Source::sht41Crc8(
 // Setup SHT41
 // =====================================================
 
-bool SHT41Source::setupSHT41()
-{
+bool SHT41Source::setupSHT41() {
     Wire.begin(SHT41_SDA, SHT41_SCL);
     Wire.setClock(100000);
 
@@ -69,8 +64,7 @@ bool SHT41Source::setupSHT41()
     Wire.beginTransmission(SHT41_ADDRESS);
     Wire.write(SHT41_MEASURE_HIGH_PRECISION);
 
-    if (Wire.endTransmission() != 0)
-    {
+    if (Wire.endTransmission() != 0) {
         Serial.println(
             "ERROR: Local SHT41 communication failed");
 
@@ -89,14 +83,12 @@ bool SHT41Source::setupSHT41()
 // Begin
 // =====================================================
 
-bool SHT41Source::begin()
-{
+bool SHT41Source::begin() {
     Serial.println("SHT41 Source");
 
     available = setupSHT41();
 
-    if (!available)
-    {
+    if (!available) {
         Serial.println(
             "SHT41 unavailable - continuing");
     }
@@ -110,13 +102,11 @@ bool SHT41Source::begin()
 
 bool SHT41Source::readSHT41(
     float& temperature,
-    float& humidity)
-{
+    float& humidity) {
     Wire.beginTransmission(SHT41_ADDRESS);
     Wire.write(SHT41_MEASURE_HIGH_PRECISION);
 
-    if (Wire.endTransmission() != 0)
-    {
+    if (Wire.endTransmission() != 0) {
         Serial.println(
             "ERROR: Local SHT41 measurement command failed");
 
@@ -130,8 +120,7 @@ bool SHT41Source::readSHT41(
             SHT41_ADDRESS,
             (uint8_t)6);
 
-    if (received != 6)
-    {
+    if (received != 6) {
         Serial.println(
             "ERROR: Local SHT41 invalid response length");
 
@@ -140,8 +129,7 @@ bool SHT41Source::readSHT41(
 
     uint8_t data[6];
 
-    for (uint8_t i = 0; i < 6; i++)
-    {
+    for (uint8_t i = 0; i < 6; i++) {
         data[i] = Wire.read();
     }
 
@@ -149,8 +137,7 @@ bool SHT41Source::readSHT41(
     // Temperature CRC
     // -------------------------------------------------
 
-    if (sht41Crc8(data, 2) != data[2])
-    {
+    if (sht41Crc8(data, 2) != data[2]) {
         Serial.println(
             "ERROR: Local SHT41 temperature CRC failed");
 
@@ -161,8 +148,7 @@ bool SHT41Source::readSHT41(
     // Humidity CRC
     // -------------------------------------------------
 
-    if (sht41Crc8(&data[3], 2) != data[5])
-    {
+    if (sht41Crc8(&data[3], 2) != data[5]) {
         Serial.println(
             "ERROR: Local SHT41 humidity CRC failed");
 
@@ -186,24 +172,22 @@ bool SHT41Source::readSHT41(
     temperature =
         -45.0f +
         175.0f *
-        ((float)rawTemperature / 65535.0f);
+            ((float)rawTemperature / 65535.0f);
 
     humidity =
         -6.0f +
         125.0f *
-        ((float)rawHumidity / 65535.0f);
+            ((float)rawHumidity / 65535.0f);
 
     // -------------------------------------------------
     // Clamp humidity
     // -------------------------------------------------
 
-    if (humidity < 0.0f)
-    {
+    if (humidity < 0.0f) {
         humidity = 0.0f;
     }
 
-    if (humidity > 100.0f)
-    {
+    if (humidity > 100.0f) {
         humidity = 100.0f;
     }
 
@@ -215,23 +199,20 @@ bool SHT41Source::readSHT41(
 // =====================================================
 
 bool SHT41Source::read(
-    SensorReading& reading)
-{
+    SensorReading& reading) {
     reading.temperature = 0.0f;
     reading.humidity = 0.0f;
 
     reading.temperatureValid = false;
     reading.humidityValid = false;
 
-    if (!available)
-    {
+    if (!available) {
         return false;
     }
 
     if (!readSHT41(
             reading.temperature,
-            reading.humidity))
-    {
+            reading.humidity)) {
         return false;
     }
 
