@@ -1,0 +1,193 @@
+Merge Rebase
+
+Padam local git branch -d branch
+Padam remote git push origin --delete branch
+
+Konsep 
+
+Merge: Gabungkan 2 branch. Sejarah commit kekal bercabang. Selamat & mudah
+Rebase: “Letak semula” commit di atas branch lain. Sejarah jadi linear (lurus)
+Lebih clean, tapi perlu hati-hati
+
+
+
+
+Workflow biasa (RECOMMENDED)
+
+✅ Cara standard (Merge)
+
+1. Pastikan branch target (main)
+git checkout main
+
+2. Update main
+git pull origin main
+
+3. Merge feature branch
+git merge flash_fix_4ceremony
+
+4. Push ke GitHub
+git push origin main
+
+
+
+Workflow dengan REBASE (advance)
+
+1. Pergi ke branch feature
+git checkout flash_fix_4ceremony
+
+2. Rebase atas main
+git rebase main
+
+3. Kalau ada conflict
+Git akan berhenti dan tunjuk conflict.
+
+👉 Kau buat:
+
+git status
+👉 Edit file conflict (fix manual)
+
+👉 Lepas fix:
+
+git add .
+git rebase --continue
+👉 Kalau nak stop:
+
+git rebase --abort
+4. Pergi main
+
+git checkout main
+5. Merge (fast-forward)
+
+git merge flash_fix_4ceremony
+6. Push
+
+git push origin main
+⚠️ 4. Bila JANGAN guna rebase
+
+❌ Jangan rebase kalau:
+
+branch dah push dan digunakan orang lain
+
+kerja dalam team besar
+
+tak pasti dengan conflict handling
+
+👉 sebab rebase ubah sejarah commit
+
+🔥 5. Cheat sheet cepat
+
+
+
+
+Merge (selamat)
+
+git checkout main
+git pull
+git merge feature
+git push
+Rebase (clean history)
+
+git checkout feature
+git rebase main
+git checkout main
+git merge feature
+git push
+🧠 6. Cara pilih (rule mudah)
+
+👉 Guna merge kalau:
+
+nak cepat
+
+tak nak pening
+
+kerja team
+
+👉 Guna rebase kalau:
+
+nak history kemas
+
+kerja sendiri
+
+nak commit lebih tersusun
+
+
+
+
+
+
+
+Baik, aku bagi panduan padam branch Git yang clear dan selamat — dari basic sampai pro 👍
+
+1. Tengok senarai branch dulu
+
+Kalau nak tengok remote juga:
+git branch -a
+
+❌ 2. Padam branch LOCAL
+
+✅ Cara biasa (selamat)
+
+git branch -d nama_branch
+👉 hanya padam kalau dah merge
+
+⚠️ Paksa padam (force delete)
+
+git branch -D nama_branch
+👉 guna kalau:
+
+belum merge
+
+tapi kau memang nak buang
+
+🌐 3. Padam branch REMOTE (GitHub)
+
+git push origin --delete nama_branch
+👉 ini akan padam branch di GitHub
+
+🔄 4. Cleanup branch lama (best practice)
+
+Kadang branch dah dipadam di remote tapi masih nampak local
+
+git fetch --prune
+⚡ 5. Flow biasa (real workflow)
+
+Contoh:
+
+git checkout main
+git pull
+
+git branch -d feature_add_user   # local
+git push origin --delete feature_add_user  # remote
+🚫 WARNING (penting)
+
+❌ Jangan padam branch yang sedang digunakan
+
+Check dulu:
+
+git branch
+Kalau nampak:
+
+* feature_add_user
+👉 Tukar dulu:
+
+git checkout main
+💡 Pro Tip (yang ramai tak tahu)
+
+✔️ Padam semua branch yang dah merge
+
+git branch --merged | grep -v "\*" | xargs git branch -d
+👉 ini auto clean branch lama (power 🔥)
+
+🎯 Ringkasan cepat
+
+Situasi	Command
+Padam local	git branch -d branch
+Paksa padam	git branch -D branch
+Padam remote	git push origin --delete branch
+Cleanup	git fetch --prune
+Kalau kau nak, aku boleh bantu:
+
+👉 setup workflow Git proper (feature → test → merge → cleanup)
+👉 atau ajar beza merge vs rebase (ramai confuse kat sini)
+
+Nak pergi situ?

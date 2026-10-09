@@ -370,7 +370,7 @@ void loop() {
 
         getTimestamp(timestamp, sizeof(timestamp));
             timestamp,
-            sizeof(timestamp));
+            sizeof(timestamp);
 
         if (dataLogger.logSensorData(
                 timestamp,
