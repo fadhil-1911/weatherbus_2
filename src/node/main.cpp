@@ -15,10 +15,14 @@
 #include "../drivers/BME280Source.h"
 #include "../drivers/SHT41Source.h"
 #include "../drivers/ESPNowTransport.h"
+#include "../services/NodeCommunicationService.h"
 
 #include "../common/weatherbus_protocol.h"
 
+#include <cstring>
+
 using namespace WeatherBus;
+
 
 // =====================================================
 // SENSOR DRIVER OBJECT
@@ -27,6 +31,13 @@ using namespace WeatherBus;
 SHT41Source sht41Source;
 BME280Source bme280Source(BME280_I2C_ADDRESS);
 ESPNowTransport transport;
+
+NodeCommunicationService nodeCommunicationService(
+    transport,
+    bme280Source,
+    sht41Source);
+
+/*
 
 // =====================================================
 // Send SENSOR_DATA
@@ -157,12 +168,12 @@ void sendSensorData(uint16_t requestSequence) {
     } else {
         Serial.println("TX ERROR: Transport send failed");
     }
-}
+} */
 
 // =====================================================
 // Receive DATA_REQUEST
 // =====================================================
-
+/*
 void onDataReceived(const uint8_t* data, size_t length) {
     if (length != sizeof(Header)) {
         Serial.printf(
@@ -212,12 +223,12 @@ void onDataReceived(const uint8_t* data, size_t length) {
                   request.sequence);
 
     sendSensorData(request.sequence);
-}
+} */
 
 // =====================================================
 // ESP-NOW setup
 // =====================================================
-
+/*
 bool setupEspNow() {
     if (!transport.begin(onDataReceived)) {
         Serial.println(
@@ -240,7 +251,7 @@ bool setupEspNow() {
     }
 
     return true;
-}
+} */
 
 bool setupI2C() {
     Wire.begin(I2C_SDA, I2C_SCL);
@@ -302,7 +313,15 @@ void setup() {
         }
     }
 
-    if (!setupEspNow()) {
+    TransportAddress baseAddress{};
+    baseAddress.length = sizeof(baseMac);
+
+    memcpy(
+        baseAddress.data,
+        baseMac,
+        baseAddress.length);
+
+    if (!nodeCommunicationService.begin(baseAddress)) {
         Serial.println("SYSTEM HALTED");
 
         while (true) {
@@ -323,4 +342,5 @@ void loop() {
     //
     // Node responds only when a valid
     // DATA_REQUEST is received.
+    nodeCommunicationService.update();
 }
