@@ -12,6 +12,7 @@
 
 #include "../common/weatherbus_protocol.h"
 
+#include <Wire.h>
 #include "node_manager.h"
 #include "polling_engine.h"
 #include "../drivers/RTCClock.h"
@@ -137,8 +138,8 @@ void onTransportDataReceived(
     // -------------------------------------------------
     // Node SD logging
     //
-    // Callback hanya menyimpan data.
-    // SD writing berlaku dalam main loop.
+    // Callback only store the  data.
+    // SD writing is done in the main loop to avoid blocking the callback.
     // -------------------------------------------------
 
     pendingLogNodeId = packet.header.nodeId;
@@ -152,8 +153,8 @@ void onTransportDataReceived(
 // =====================================================
 // Add all Node peers
 //
-// Transport tidak tahu NodeManager.
-// main hanya menyediakan address kepada Transport.
+// Transport unknown the NodeManager.
+// main .cpp is the only place that knows both.
 // =====================================================
 
 bool setupPeers() {
@@ -204,11 +205,23 @@ bool setupTransport() {
 }
 
 // =====================================================
+// I2C initialization
+// =====================================================
+void setupI2C() {
+    Wire.begin(8, 9);
+    Wire.setClock(100000);
+    delay(10);
+
+    Serial.println("I2C bus ready");
+}
+
+// =====================================================
 // Setup
 // =====================================================
 
 void setup() {
     Serial.begin(115200);
+    setupI2C();
 
     Serial.println();
     Serial.println("================================");
@@ -369,7 +382,7 @@ void loop() {
         char timestamp[20];
 
         getTimestamp(timestamp, sizeof(timestamp));
-            timestamp,
+        timestamp,
             sizeof(timestamp);
 
         if (dataLogger.logSensorData(

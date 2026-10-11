@@ -8,8 +8,6 @@
 #include <Wire.h>
 
 bool RTCClock::begin() {
-    Wire.begin(8, 9);
-    Wire.setClock(100000);
 
     if (!_rtc.begin()) {
         _status = false;

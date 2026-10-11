@@ -12,9 +12,6 @@
 
 namespace {
 constexpr uint8_t SHT41_ADDRESS = 0x44;
-constexpr uint8_t SHT41_SDA = 8;
-constexpr uint8_t SHT41_SCL = 9;
-
 constexpr uint8_t SHT41_MEASURE_HIGH_PRECISION = 0xFD;
 }
 
@@ -56,10 +53,6 @@ uint8_t SHT41Source::sht41Crc8(
 // =====================================================
 
 bool SHT41Source::setupSHT41() {
-    Wire.begin(SHT41_SDA, SHT41_SCL);
-    Wire.setClock(100000);
-
-    delay(10);
 
     Wire.beginTransmission(SHT41_ADDRESS);
     Wire.write(SHT41_MEASURE_HIGH_PRECISION);
