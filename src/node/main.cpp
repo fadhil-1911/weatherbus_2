@@ -10,12 +10,11 @@
 */
 
 #include <Arduino.h>
-#include <WiFi.h>
 #include <Wire.h>
-#include <esp_now.h>
 #include "config/node_settings.h"
 #include "../drivers/BME280Source.h"
 #include "../drivers/SHT41Source.h"
+#include "../drivers/ESPNowTransport.h"
 
 #include "../common/weatherbus_protocol.h"
 
@@ -27,6 +26,7 @@ using namespace WeatherBus;
 
 SHT41Source sht41Source;
 BME280Source bme280Source(BME280_I2C_ADDRESS);
+ESPNowTransport transport;
 
 // =====================================================
 // Send SENSOR_DATA
@@ -125,13 +125,20 @@ void sendSensorData(uint16_t requestSequence) {
     // ESP-NOW transmission
     // -------------------------------------------------
 
-    esp_err_t result = esp_now_send(
+    TransportAddress baseAddress{};
+    baseAddress.length = 6;
+
+    memcpy(
+        baseAddress.data,
         baseMac,
-        reinterpret_cast<uint8_t*>(&packet),
+        baseAddress.length);
+
+    bool sent = transport.send(
+        baseAddress,
+        reinterpret_cast<const uint8_t*>(&packet),
         sizeof(packet));
 
-    if (result == ESP_OK) {
-
+    if (sent) {
         Serial.printf(
             "TX: SENSOR_DATA | "
             "Node=%u | "
@@ -148,10 +155,7 @@ void sendSensorData(uint16_t requestSequence) {
             packet.payload.humidity,
             packet.payload.pressure);
     } else {
-
-        Serial.printf(
-            "TX ERROR: %d\n",
-            result);
+        Serial.println("TX ERROR: Transport send failed");
     }
 }
 
@@ -159,12 +163,12 @@ void sendSensorData(uint16_t requestSequence) {
 // Receive DATA_REQUEST
 // =====================================================
 
-void onDataReceived(const uint8_t* mac, const uint8_t* data, int len) {
-    if (len != sizeof(Header)) {
+void onDataReceived(const uint8_t* data, size_t length) {
+    if (length != sizeof(Header)) {
         Serial.printf(
-            "RX ERROR: Invalid packet size | Received=%d | Expected=%u\n",
-            len,
-            sizeof(Header));
+            "RX ERROR: Invalid packet size | Received=%u | Expected=%u\n",
+            static_cast<unsigned>(length),
+            static_cast<unsigned>(sizeof(Header)));
 
         return;
     }
@@ -215,27 +219,23 @@ void onDataReceived(const uint8_t* mac, const uint8_t* data, int len) {
 // =====================================================
 
 bool setupEspNow() {
-    WiFi.mode(WIFI_STA);
-
-    Serial.print("Node MAC: ");
-    Serial.println(WiFi.macAddress());
-
-    if (esp_now_init() != ESP_OK) {
-        Serial.println("ERROR: ESP-NOW initialization failed");
+    if (!transport.begin(onDataReceived)) {
+        Serial.println(
+            "ERROR: ESP-NOW initialization failed");
         return false;
     }
 
-    esp_now_register_recv_cb(onDataReceived);
+    TransportAddress baseAddress{};
+    baseAddress.length = 6;
 
-    esp_now_peer_info_t peerInfo{};
+    memcpy(
+        baseAddress.data,
+        baseMac,
+        baseAddress.length);
 
-    memcpy(peerInfo.peer_addr, baseMac, 6);
-
-    peerInfo.channel = 0;
-    peerInfo.encrypt = false;
-
-    if (esp_now_add_peer(&peerInfo) != ESP_OK) {
-        Serial.println("ERROR: Failed to add Base peer");
+    if (!transport.addPeer(baseAddress)) {
+        Serial.println(
+            "ERROR: Failed to add Base peer");
         return false;
     }
 
