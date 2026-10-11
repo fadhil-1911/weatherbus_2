@@ -9,9 +9,8 @@
 #include "../common/weatherbus_protocol.h"
 #include "../interfaces/ISensorSource.h"
 
-class LocalSensorService
-{
-public:
+class LocalSensorService {
+  public:
     explicit LocalSensorService(ISensorSource& sensorSource);
 
     bool begin();
@@ -20,6 +19,6 @@ public:
         WeatherBus::SensorDataPayload& data,
         uint8_t& flags);
 
-private:
+  private:
     ISensorSource& sensorSource;
 };

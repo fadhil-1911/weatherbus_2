@@ -10,9 +10,11 @@ NODE  2 MAC: 9c:cc:01:7d:14:80
 
 Upload Base
 pio run -t upload --upload-port /dev/cu.usbmodem1401
+pio run -e base -t upload --upload-port /dev/cu.usbmodem1401
 
 Upload Node 1
 pio run -t upload --upload-port /dev/cu.usbmodem1301
+pio run -e node -t upload --upload-port /dev/cu.usbmodem1301
 
 Upload Node 2
 pio run -t upload --upload-port /dev/cu.usbmodem1201

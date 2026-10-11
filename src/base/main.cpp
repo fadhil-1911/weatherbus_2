@@ -350,7 +350,13 @@ void loop() {
         lastSensorRead = millis();
         WeatherBus::SensorDataPayload data{};
         uint8_t flags = 0;
-        localSensorService.readSensors(data, flags);
+        //localSensorService.readSensors(data, flags);
+        bool sensorReadOK =
+            localSensorService.readSensors(data, flags);
+
+        if (!sensorReadOK) {
+            Serial.println("WARNING: Local sensor read failed");
+        }
 
         Serial.println();
         Serial.println(
@@ -385,16 +391,16 @@ void loop() {
         timestamp,
             sizeof(timestamp);
 
-        if (dataLogger.logSensorData(
-                timestamp,
-                0,
-                data.temperature,
-                data.humidity,
-                data.pressure,
-                flags)) {
-
-            Serial.println(
-                F("[SD] Local sensor logged"));
+        if (sensorReadOK) {
+            if (dataLogger.logSensorData(
+                    timestamp,
+                    0,
+                    data.temperature,
+                    data.humidity,
+                    data.pressure,
+                    flags)) {
+                Serial.println(F("[SD] Local sensor logged"));
+            }
         }
     }
 }

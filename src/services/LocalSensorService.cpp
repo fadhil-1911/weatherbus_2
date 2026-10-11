@@ -10,16 +10,14 @@
 
 LocalSensorService::LocalSensorService(
     ISensorSource& sensorSource)
-    : sensorSource(sensorSource)
-{
+    : sensorSource(sensorSource) {
 }
 
 // =====================================================
 // Begin
 // =====================================================
 
-bool LocalSensorService::begin()
-{
+bool LocalSensorService::begin() {
     return sensorSource.begin();
 }
 
@@ -29,8 +27,7 @@ bool LocalSensorService::begin()
 
 bool LocalSensorService::readSensors(
     WeatherBus::SensorDataPayload& data,
-    uint8_t& flags)
-{
+    uint8_t& flags) {
     SensorReading reading;
 
     data.temperature = 0.0f;
@@ -39,8 +36,7 @@ bool LocalSensorService::readSensors(
 
     flags = 0;
 
-    if (!sensorSource.read(reading))
-    {
+    if (!sensorSource.read(reading)) {
         return false;
     }
 
@@ -48,8 +44,7 @@ bool LocalSensorService::readSensors(
     // Temperature
     // -------------------------------------------------
 
-    if (reading.temperatureValid)
-    {
+    if (reading.temperatureValid) {
         data.temperature = reading.temperature;
 
         flags |=
@@ -60,8 +55,7 @@ bool LocalSensorService::readSensors(
     // Humidity
     // -------------------------------------------------
 
-    if (reading.humidityValid)
-    {
+    if (reading.humidityValid) {
         data.humidity = reading.humidity;
 
         flags |=
@@ -72,8 +66,7 @@ bool LocalSensorService::readSensors(
     // Pressure
     // -------------------------------------------------
 
-    if (reading.pressureValid)
-    {
+    if (reading.pressureValid) {
         data.pressure = reading.pressure;
 
         flags |=
