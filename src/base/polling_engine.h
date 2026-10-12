@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <freertos/FreeRTOS.h>
+#include <freertos/portmacro.h>
 #include <Arduino.h>
 #include "node_manager.h"
 #include "../interfaces/ITransport.h"
@@ -52,15 +54,22 @@ class PollingEngine {
     // Actual processing is done in update().
     // -------------------------------------------------
 
-    volatile bool responsePending;
+    // Shared response handoff: ESP-NOW callback <-> main loop
+    portMUX_TYPE responseMux = portMUX_INITIALIZER_UNLOCKED;
 
-    uint8_t pendingNodeId;
-    uint16_t pendingSequence;
-    uint8_t pendingFlags;
+    // Active request metadata; protected by responseMux
+    bool responseExpected = false;
+    uint8_t expectedNodeId = 0;
+    uint16_t expectedResponseSequence = 0;
 
-    float pendingTemperature;
-    float pendingHumidity;
-    float pendingPressure;
+    // Pending response buffer; protected by responseMux
+    bool responsePending = false;
+    uint8_t pendingNodeId = 0;
+    uint16_t pendingSequence = 0;
+    uint8_t pendingFlags = 0;
+    float pendingTemperature = 0.0f;
+    float pendingHumidity = 0.0f;
+    float pendingPressure = 0.0f;
 
     static constexpr uint32_t RESPONSE_TIMEOUT_MS = 200;
     static constexpr uint32_t POLL_INTERVAL_MS = 2000;
@@ -71,4 +80,3 @@ class PollingEngine {
     void moveToNextNode();
     void handleTimeout();
 };
-
