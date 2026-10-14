@@ -66,14 +66,16 @@ void PollingEngine::update() {
     // -------------------------------------------------
     // Process pending transport response
     // -------------------------------------------------
-
+    processPendingResponse();
+    now = millis();
+    /*
     if (responsePending) {
         processPendingResponse();
 
         // Refresh time after processing response.
         // Elakkan menggunakan nilai 'now' lama.
         now = millis();
-    }
+    } */
 
     // -------------------------------------------------
     // State machine
@@ -211,7 +213,36 @@ void PollingEngine::sendRequest() {
 // Callback only copies data and sets a flag.
 // The main loop will process the response in update().
 // =====================================================
+void PollingEngine::onSensorData(
+    uint8_t nodeId,
+    uint16_t sequence,
+    uint8_t flags,
+    float temperature,
+    float humidity,
+    float pressure) {
 
+    // Callback only stores the first pending response.
+    // No state machine processing here.
+
+    portENTER_CRITICAL(&responseMux);
+
+    if (!responsePending) {
+
+        pendingNodeId = nodeId;
+        pendingSequence = sequence;
+        pendingFlags = flags;
+
+        pendingTemperature = temperature;
+        pendingHumidity = humidity;
+        pendingPressure = pressure;
+
+        responsePending = true;
+    }
+
+    portEXIT_CRITICAL(&responseMux);
+}
+
+/*
 void PollingEngine::onSensorData(
     uint8_t nodeId,
     uint16_t sequence,
@@ -251,7 +282,7 @@ void PollingEngine::onSensorData(
     // -------------------------------------------------
 
     responsePending = true;
-}
+} */
 
 // =====================================================
 // Process pending response
@@ -260,29 +291,37 @@ void PollingEngine::onSensorData(
 // =====================================================
 
 void PollingEngine::processPendingResponse() {
-    // -------------------------------------------------
-    // Take pending response
-    // -------------------------------------------------
+
+    uint8_t nodeId;
+    uint16_t sequence;
+    uint8_t flags;
+
+    float temperature;
+    float humidity;
+    float pressure;
+
+    // ---------------------------------------------
+    // Atomic snapshot of pending response
+    // ---------------------------------------------
+
+    portENTER_CRITICAL(&responseMux);
+
+    if (!responsePending) {
+        portEXIT_CRITICAL(&responseMux);
+        return;
+    }
+
+    nodeId = pendingNodeId;
+    sequence = pendingSequence;
+    flags = pendingFlags;
+
+    temperature = pendingTemperature;
+    humidity = pendingHumidity;
+    pressure = pendingPressure;
 
     responsePending = false;
 
-    uint8_t nodeId =
-        pendingNodeId;
-
-    uint16_t sequence =
-        pendingSequence;
-
-    uint8_t flags =
-        pendingFlags;
-
-    float temperature =
-        pendingTemperature;
-
-    float humidity =
-        pendingHumidity;
-
-    float pressure =
-        pendingPressure;
+    portEXIT_CRITICAL(&responseMux);
 
     // -------------------------------------------------
     // State validation
