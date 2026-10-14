@@ -287,9 +287,8 @@ pio run -e node -t upload
 
 **Current Stage:** Stability Testing & Data Collection
 
-**Latest Development Commit:** `ce455e3`  
-**Development Branch:** `Sensor_Validity_Handling`  
-**Main Baseline:** `795c039`
+**Current Stage:** Stability Testing & Data Collection
+**Development Baseline:** `6d2152c`
 
 ## Latest Development Updates
 
