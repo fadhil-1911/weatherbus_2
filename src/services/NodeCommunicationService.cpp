@@ -2,7 +2,6 @@
 // File: src/services/NodeCommunicationService.h
 // =====================================================
 
-
 #include "NodeCommunicationService.h"
 
 #include <cstring>
@@ -257,6 +256,9 @@ void NodeCommunicationService::processRequest(
         }
     }
 
+    // TEST ONLY: Simulate late response
+    //delay(300);
+
     // -------------------------------------------------
     // Build SENSOR_DATA packet
     // -------------------------------------------------
@@ -302,6 +304,20 @@ void NodeCommunicationService::processRequest(
             packet.payload.temperature,
             packet.payload.humidity,
             packet.payload.pressure);
+
+        // -------------------------------------------------
+        // TEST ONLY: Duplicate SENSOR_DATA
+        // -------------------------------------------------
+        /*
+        bool duplicateSent = transport.send(
+            baseAddress,
+            reinterpret_cast<const uint8_t*>(&packet),
+            sizeof(packet));
+
+        Serial.printf(
+            "TEST: Duplicate SENSOR_DATA | Seq=%u | Send=%s\n",
+            packet.header.sequence,
+            duplicateSent ? "OK" : "FAILED"); */
     } else {
         Serial.println(
             "TX ERROR: Transport send failed");

@@ -1,0 +1,36 @@
+nano ~/.zshrc
+source ~/.zshrc
+
+
+
+  UW PICO 5.09             File: /Users/fadhilhashim/.zshrc               
+
+# Flutter
+export PATH="$PATH:$HOME/flutter/bin"
+
+# Java / OpenJDK
+export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
+
+# Node Version Manager
+export NVM_DIR="$HOME/.nvm"
+[ -s "$(brew --prefix nvm)/nvm.sh" ] && source "$(brew --prefix nvm)/nvm.$
+
+# PlatformIO
+export PATH="$HOME/.platformio/penv/bin:$PATH"
+
+
+# Terminal aliases
+# Reload: source ~/.zshrc
+alias c='clear'
+alias weatherbus='cd "$HOME/desktop/My Project/weatherbus"'
+alias ..='cd ..'
+alias ...='cd ../..'
+alias ....='cd ../../..'
+
+
+# Git aliases
+alias gst='git status'
+alias gpl='git pull'
+
+^G Get Help ^O WriteOut ^R Read File^Y Prev Pg  ^K Cut Text ^C Cur Pos  
+^X Exit     ^J Justify  ^W Where is ^V Next Pg  ^U UnCut Tex^T To Spell 

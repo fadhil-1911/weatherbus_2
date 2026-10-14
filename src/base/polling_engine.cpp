@@ -47,11 +47,7 @@ PollingEngine::PollingEngine(
 void PollingEngine::begin() {
     state = State::IDLE;
     stateTimestamp = millis();
-
-    portENTER_CRITICAL(&responseMux);
     responsePending = false;
-    responseExpected = false;
-    portEXIT_CRITICAL(&responseMux);
 
     Serial.println("Polling Engine ready");
 }
@@ -71,8 +67,13 @@ void PollingEngine::update() {
     // Process pending transport response
     // -------------------------------------------------
 
-    processPendingResponse();
-    now = millis();
+    if (responsePending) {
+        processPendingResponse();
+
+        // Refresh time after processing response.
+        // Elakkan menggunakan nilai 'now' lama.
+        now = millis();
+    }
 
     // -------------------------------------------------
     // State machine
@@ -145,17 +146,8 @@ void PollingEngine::sendRequest() {
     // Store expected response sequence
     // -------------------------------------------------
 
-    expectedSequence = request.sequence;
-
-    // Register the active request before transmission.
-    portENTER_CRITICAL(&responseMux);
-
-    expectedNodeId = node->nodeId;
-    expectedResponseSequence = request.sequence;
-    responsePending = false;
-    responseExpected = true;
-
-    portEXIT_CRITICAL(&responseMux);
+    expectedSequence =
+        request.sequence;
 
     request.payloadLength = 0;
 
@@ -196,10 +188,6 @@ void PollingEngine::sendRequest() {
             "TX ERROR: Node %u | Transport send failed\n",
             node->nodeId);
 
-        portENTER_CRITICAL(&responseMux);
-        responseExpected = false;
-        portEXIT_CRITICAL(&responseMux);
-
         handleTimeout();
         return;
     }
@@ -231,24 +219,38 @@ void PollingEngine::onSensorData(
     float temperature,
     float humidity,
     float pressure) {
-    portENTER_CRITICAL(&responseMux);
+    // -------------------------------------------------
+    // Ignore if no request is currently active
+    //
+    // Only read the state in the callback.
+    // Do not change stateTimestamp or state.
+    // -------------------------------------------------
 
-    // Accept only the response matching the active request.
-    if (responseExpected &&
-        !responsePending &&
-        nodeId == expectedNodeId &&
-        sequence == expectedResponseSequence) {
-        pendingNodeId = nodeId;
-        pendingSequence = sequence;
-        pendingFlags = flags;
-        pendingTemperature = temperature;
-        pendingHumidity = humidity;
-        pendingPressure = pressure;
+    if (state != State::WAIT_RESPONSE) {
 
-        responsePending = true;
+        Serial.println(
+            "RX: Ignored response | No active request");
+
+        return;
     }
 
-    portEXIT_CRITICAL(&responseMux);
+    // -------------------------------------------------
+    // Copy response into pending buffer
+    // -------------------------------------------------
+
+    pendingNodeId = nodeId;
+    pendingSequence = sequence;
+    pendingFlags = flags;
+
+    pendingTemperature = temperature;
+    pendingHumidity = humidity;
+    pendingPressure = pressure;
+
+    // -------------------------------------------------
+    // Tell main loop that response is ready
+    // -------------------------------------------------
+
+    responsePending = true;
 }
 
 // =====================================================
@@ -258,37 +260,29 @@ void PollingEngine::onSensorData(
 // =====================================================
 
 void PollingEngine::processPendingResponse() {
-    uint8_t nodeId = 0;
-    uint16_t sequence = 0;
-    uint8_t flags = 0;
+    // -------------------------------------------------
+    // Take pending response
+    // -------------------------------------------------
 
-    float temperature = 0.0f;
-    float humidity = 0.0f;
-    float pressure = 0.0f;
+    responsePending = false;
 
-    bool hasPending = false;
+    uint8_t nodeId =
+        pendingNodeId;
 
-    portENTER_CRITICAL(&responseMux);
+    uint16_t sequence =
+        pendingSequence;
 
-    if (responsePending) {
-        nodeId = pendingNodeId;
-        sequence = pendingSequence;
-        flags = pendingFlags;
-        temperature = pendingTemperature;
-        humidity = pendingHumidity;
-        pressure = pendingPressure;
+    uint8_t flags =
+        pendingFlags;
 
-        responsePending = false;
-        responseExpected = false;
-        hasPending = true;
-    }
+    float temperature =
+        pendingTemperature;
 
-    portEXIT_CRITICAL(&responseMux);
+    float humidity =
+        pendingHumidity;
 
-    if (!hasPending) {
-        return;
-    }
-
+    float pressure =
+        pendingPressure;
 
     // -------------------------------------------------
     // State validation
@@ -451,6 +445,17 @@ void PollingEngine::processPendingResponse() {
     Serial.println(
         "===================================");
 
+    // Notify application only for valid response
+    if (validResponseCallback != nullptr) {
+
+        validResponseCallback(
+            nodeId,
+            flags,
+            temperature,
+            humidity,
+            pressure);
+    }
+
     // -------------------------------------------------
     // Move to next polling cycle
     //
@@ -467,12 +472,6 @@ void PollingEngine::processPendingResponse() {
 // =====================================================
 
 void PollingEngine::handleTimeout() {
-
-    portENTER_CRITICAL(&responseMux);
-    responseExpected = false;
-    responsePending = false;
-    portEXIT_CRITICAL(&responseMux);
-
     NodeInfo* node =
         nodeManager.getNode(currentNodeIndex);
 
@@ -515,4 +514,13 @@ void PollingEngine::moveToNextNode() {
 
     state =
         State::IDLE;
+}
+
+// =====================================================
+// Set valid response callback
+// =====================================================
+void PollingEngine::setValidResponseCallback(
+    ValidResponseCallback callback) {
+
+    validResponseCallback = callback;
 }

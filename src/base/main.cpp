@@ -1,7 +1,7 @@
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //                    WeatherBus
 //                   Version: 1.0
-//             Last Updated: 2026-10-09
+//             Last Updated: 2026-10-14
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 /*
   Module  : Base Station - Main Application: 
@@ -134,21 +134,37 @@ void onTransportDataReceived(
         packet.payload.temperature,
         packet.payload.humidity,
         packet.payload.pressure);
+}
 
-    // -------------------------------------------------
-    // Node SD logging
-    //
-    // Callback only store the  data.
-    // SD writing is done in the main loop to avoid blocking the callback.
-    // -------------------------------------------------
+// -------------------------------------------------
+// Node SD logging
+//
+// Callback only store the  data.
+// SD writing is done in the main loop to avoid blocking the callback.
+// -------------------------------------------------
 
+void onValidNodeResponse(
+    uint8_t nodeId,
+    uint8_t flags,
+    float temperature,
+    float humidity,
+    float pressure) {
+
+    pendingLogNodeId = nodeId;
+    pendingLogTemperature = temperature;
+    pendingLogHumidity = humidity;
+    pendingLogPressure = pressure;
+    pendingLogFlags = flags;
+
+    nodeLogPending = true;
+}
+/*
     pendingLogNodeId = packet.header.nodeId;
     pendingLogTemperature = packet.payload.temperature;
     pendingLogHumidity = packet.payload.humidity;
     pendingLogPressure = packet.payload.pressure;
     pendingLogFlags = packet.header.flags;
-    nodeLogPending = true;
-}
+    nodeLogPending = true; */
 
 // =====================================================
 // Add all Node peers
@@ -280,6 +296,8 @@ void setup() {
     Serial.println("Transport ready");
 
     pollingEngine.begin();
+    pollingEngine.setValidResponseCallback(
+        onValidNodeResponse);
 
     delay(5000);
 }

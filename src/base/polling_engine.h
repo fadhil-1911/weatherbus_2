@@ -4,8 +4,6 @@
 
 #pragma once
 
-#include <freertos/FreeRTOS.h>
-#include <freertos/portmacro.h>
 #include <Arduino.h>
 #include "node_manager.h"
 #include "../interfaces/ITransport.h"
@@ -26,6 +24,20 @@ class PollingEngine {
         float temperature,
         float humidity,
         float pressure);
+
+    // -------------------------------------------------
+    // Valid Response Callback
+    // -------------------------------------------------
+
+    using ValidResponseCallback = void (*)(
+        uint8_t nodeId,
+        uint8_t flags,
+        float temperature,
+        float humidity,
+        float pressure);
+
+    void setValidResponseCallback(
+        ValidResponseCallback callback);
 
   private:
     enum class State {
@@ -54,22 +66,21 @@ class PollingEngine {
     // Actual processing is done in update().
     // -------------------------------------------------
 
-    // Shared response handoff: ESP-NOW callback <-> main loop
-    portMUX_TYPE responseMux = portMUX_INITIALIZER_UNLOCKED;
+    volatile bool responsePending;
 
-    // Active request metadata; protected by responseMux
-    bool responseExpected = false;
-    uint8_t expectedNodeId = 0;
-    uint16_t expectedResponseSequence = 0;
+    uint8_t pendingNodeId;
+    uint16_t pendingSequence;
+    uint8_t pendingFlags;
 
-    // Pending response buffer; protected by responseMux
-    bool responsePending = false;
-    uint8_t pendingNodeId = 0;
-    uint16_t pendingSequence = 0;
-    uint8_t pendingFlags = 0;
-    float pendingTemperature = 0.0f;
-    float pendingHumidity = 0.0f;
-    float pendingPressure = 0.0f;
+    float pendingTemperature;
+    float pendingHumidity;
+    float pendingPressure;
+
+    // -------------------------------------------------
+    // Valid Response Callback
+    // -------------------------------------------------
+
+    ValidResponseCallback validResponseCallback = nullptr;
 
     static constexpr uint32_t RESPONSE_TIMEOUT_MS = 200;
     static constexpr uint32_t POLL_INTERVAL_MS = 2000;
