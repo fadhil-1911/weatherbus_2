@@ -391,6 +391,22 @@ void PollingEngine::processPendingResponse() {
     // Validate Temperature
     // -------------------------------------------------
 
+    // Validate temperature only if flagged valid
+    if (flags & FLAG_TEMPERATURE_VALID) {
+
+        if (!isfinite(temperature) ||
+            temperature < -40.0f ||
+            temperature > 85.0f) {
+
+            Serial.printf(
+                "RX: Invalid temperature | %.2f C\n",
+                temperature);
+
+            return;
+        }
+    }
+
+    /*
     if (!isfinite(temperature) ||
         temperature < -40.0f ||
         temperature > 85.0f) {
@@ -400,12 +416,27 @@ void PollingEngine::processPendingResponse() {
             temperature);
 
         return;
-    }
+    } */
 
     // -------------------------------------------------
     // Validate Humidity
     // -------------------------------------------------
 
+    // Validate humidity only if flagged valid
+    if (flags & FLAG_HUMIDITY_VALID) {
+
+        if (!isfinite(humidity) ||
+            humidity < 0.0f ||
+            humidity > 100.0f) {
+
+            Serial.printf(
+                "RX: Invalid humidity | %.2f %%\n",
+                humidity);
+
+            return;
+        }
+    }
+    /*
     if (!isfinite(humidity) ||
         humidity < 0.0f ||
         humidity > 100.0f) {
@@ -414,8 +445,8 @@ void PollingEngine::processPendingResponse() {
             "RX: Invalid humidity | %.2f %%\n",
             humidity);
 
-        return;
-    }
+        return; 
+    } */
 
     // -------------------------------------------------
     // Validate Pressure

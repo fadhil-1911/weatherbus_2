@@ -70,6 +70,17 @@ bool BME280Source::read(
     float humidity = _bme.readHumidity();
     float pressure = _bme.readPressure() / 100.0F;
 
+    // TEST T1: Keep temperature invalid
+    //temperature = NAN;
+    // TEST T2: Keep humidity invalid
+    //humidity = NAN;
+    // TEST T3: Keep pressure invalid
+    //pressure = NAN;
+    // TEST T4: Simulate complete sensor reading failure
+    //temperature = NAN;
+    //humidity = NAN;
+    //pressure = NAN;
+
     Serial.printf(
         "BME280 RAW | T=%.2f C | RH=%.2f %% | P=%.2f hPa\n",
         temperature,
@@ -100,6 +111,17 @@ bool BME280Source::read(
         humidity = _bme.readHumidity();
         pressure = _bme.readPressure() / 100.0F;
 
+        // TEST T1: Keep temperature invalid
+        //temperature = NAN;
+        // TEST T2: Keep humidity invalid
+        //humidity = NAN;
+        // TEST T3: Keep pressure invalid
+        //pressure = NAN;
+        // TEST T4: Simulate complete sensor reading failure
+        //temperature = NAN;
+        //humidity = NAN;
+        //pressure = NAN;
+
         temperatureValid =
             isTemperatureValid(temperature);
 
@@ -109,6 +131,16 @@ bool BME280Source::read(
         pressureValid =
             isPressureValid(pressure);
 
+        if (!temperatureValid &&
+            !humidityValid &&
+            !pressureValid) {
+
+            Serial.println(
+                "ERROR: All BME280 readings invalid after recovery");
+
+            return false;
+        }
+        /*
         if (!temperatureValid ||
             !humidityValid ||
             !pressureValid) {
@@ -117,19 +149,25 @@ bool BME280Source::read(
                 "ERROR: BME280 readings still invalid after recovery");
 
             return false;
-        }
+        } */
     }
 
-    // Apply calibration after successful validation
-    temperature += TEMP_OFFSET;
-    humidity += HUM_OFFSET;
+    // Apply calibration only to valid readings
+    if (temperatureValid) {
+        temperature += TEMP_OFFSET;
+    }
 
-    humidity = constrain(humidity, 0.0F, 100.0F);
+    if (humidityValid) {
+        humidity += HUM_OFFSET;
+        humidity = constrain(humidity, 0.0F, 100.0F);
+    }
 
-    reading.temperature = temperature;
-    reading.humidity = humidity;
-    reading.pressure = pressure;
+    // Store sensor readings
+    reading.temperature = temperatureValid ? temperature : 0.0F;
+    reading.humidity = humidityValid ? humidity : 0.0F;
+    reading.pressure = pressureValid ? pressure : 0.0F;
 
+    // Store validity status
     reading.temperatureValid = temperatureValid;
     reading.humidityValid = humidityValid;
     reading.pressureValid = pressureValid;

@@ -201,7 +201,14 @@ void NodeCommunicationService::processRequest(
     if (ENABLE_BME280) {
         SensorReading reading;
 
+        // temperature, humidity, and pressure are read from BME280.
         if (bme280Source.read(reading)) {
+            Serial.printf(
+                "DEBUG VALIDITY | T=%d | H=%d | P=%d\n",
+                reading.temperatureValid,
+                reading.humidityValid,
+                reading.pressureValid);
+
             pressure = reading.pressure;
 
             if (reading.pressureValid) {
