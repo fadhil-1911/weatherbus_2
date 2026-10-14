@@ -1,150 +1,112 @@
 # WeatherBus
 
-**Development Version:** 1.0
-**Status:** In Development
-**Last Updated:** 2026-10-01
+**Development Version:** 1.0  
+**Status:** In Development  
+**Last Updated:** 2026-10-14
 
 ---
 
 ## Overview
 
-**WeatherBus V1.0** is an ESP32-C3 based experimental wireless environmental monitoring system using **ESP-NOW** for communication between a Base Station and sensor Nodes.
+WeatherBus V1.0 is an experimental wireless environmental monitoring system built on ESP32-C3 using ESP-NOW communication.
 
-The project is currently under active development and hardware testing.
+The system supports local and remote environmental sensors, RTC timestamping, and MicroSD data logging.
 
-The current development focuses on:
+**Current Configuration:**
+- 1 × Base Station (ESP32-C3)
+- 1 × Remote Node (ESP32-C3)
+- ESP-NOW communication
+- SHT41 (Base)
+- BME280 (Node)
+- DS3231 RTC
+- MicroSD storage
 
-* Wireless sensor communication
-* Local sensor monitoring
-* Remote sensor Nodes
-* RTC timestamping
-* SD card data logging
-* Sensor data validation
-* Node timeout and recovery handling
-* Modular firmware development
-
----
+The current configuration is intended for development, hardware testing, and continuous environmental data collection.
 
 ## Development Status
 
-**Current Focus: RTC + SD Integration**
+| Component | Status |
+|---|---|
+| ESP-NOW Communication | PASS |
+| WeatherBus Protocol V1.0 | PASS |
+| Local Sensor (SHT41) | PASS |
+| Remote Sensor (BME280) | PASS |
+| Polling Engine | PASS |
+| Node Manager | PASS |
+| Sensor Data Validation | PASS |
+| RTC Integration | IMPLEMENTED |
+| SD Card Integration | IMPLEMENTED |
+| ESP-NOW Response Handoff | PASS |
+| Late/Duplicate Response Tests | PASS |
+| Local Sensor Logging Validation | PASS |
+| Single Base + Node Hardware Test | PASS |
+| Multi-Node Hardware Test | PENDING |
+| Long-Duration Stability Test | PENDING |
 
-Current development configuration:
-
-```text
-1 × WeatherBus Base
-1 × WeatherBus Node
-ESP32-C3
-ESP-NOW
-SHT41
-BME280
-DS3231 RTC
-MicroSD
-```
-
-The current configuration is intended for **development and hardware testing**.
-
-Only one remote Node is currently enabled. The architecture may be expanded to support additional Nodes as development progresses.
-
----
-
-## Project Stage
-
-WeatherBus is **not considered a production-ready system**.
-
-Firmware structure, hardware configuration, communication protocol, logging system and sensor management may change during development.
-
-Current development priorities include:
-
-* Hardware stability
-* Sensor reliability
-* ESP-NOW communication
-* RTC timestamp accuracy
-* SD logging reliability
-* Long-duration testing
-* Firmware architecture refinement
-
----
-
-# System Architecture
+## System Architecture
 
 ```text
-                    WeatherBus Base
-                       ESP32-C3
-                           │
-             ┌─────────────┴─────────────┐
-             │                           │
-       Local Sensor                  ESP-NOW
-         Manager                        │
-             │                         │
-          SHT41                     Node 1
-             │                      ESP32-C3
-             │                         │
-             │                       BME280
-             │                         │
-             └──────────┬──────────────┘
-                        │
-                 Sensor Data
-                        │
-                   RTCManager
-                 DS3231 Timestamp
-                        │
-                    SDLogger
-                        │
+                WeatherBus Base
+                   ESP32-C3
+                       |
+           +-----------+-----------+
+           |                       |
+      Local Sensor               ESP-NOW
+         SHT41                     |
+           |                    Node 1
+           |                   ESP32-C3
+           |                       |
+           |                     BME280
+           |                       |
+           +-----------+-----------+
+                       |
+                Data Validation
+                       |
+                 RTC Timestamp
+                       |
+                   SDLogger
+                       |
                   log_wb2.csv
 ```
 
-The Base currently handles two sensor data sources:
+## Firmware Architecture
 
-1. **Local sensor**
-2. **Remote Node sensor**
-
-Both can be stored on the SD card with RTC timestamps.
-
----
-
-# Communication
-
-Transport:
+WeatherBus uses a modular firmware architecture separating application logic, services, interfaces, and hardware drivers.
 
 ```text
-ESP-NOW
+Application
+    |
+  Services
+    |
+ Interfaces
+    ^
+    |
+  Drivers
 ```
 
-Protocol:
+The architecture is intended to simplify hardware changes, testing, and future expansion.
 
-```text
-WeatherBus Protocol v0x01
-```
+## Communication
 
-Packet types:
+**Transport:** ESP-NOW  
+**Protocol Version:** `0x01`
+
+**Packet Types:**
 
 ```cpp
 SENSOR_DATA  = 0x01
 DATA_REQUEST = 0x02
 ```
 
-Communication flow:
+**Packet Structure:**
 
-```text
-Base
- ↓
-DATA_REQUEST
- ↓
-Node
- ↓
-SENSOR_DATA
- ↓
-Base
-```
+| Field | Size |
+|---|---|
+| WeatherBus Header | 12 bytes |
+| SensorDataPayload | 12 bytes |
+| Total | 24 bytes |
 
-The Node responds to valid `DATA_REQUEST` packets from the Base.
-
----
-
-# Sensor Data Protocol
-
-`SensorDataPayload`:
+**Sensor Data:**
 
 ```cpp
 struct SensorDataPayload {
@@ -154,512 +116,163 @@ struct SensorDataPayload {
 };
 ```
 
-WeatherBus sensor flags:
+**Validation Flags:**
 
 ```cpp
-FLAG_TEMPERATURE_VALID = 0x01;
-FLAG_HUMIDITY_VALID    = 0x02;
-FLAG_PRESSURE_VALID    = 0x04;
+FLAG_TEMPERATURE_VALID = 0x01
+FLAG_HUMIDITY_VALID    = 0x02
+FLAG_PRESSURE_VALID    = 0x04
 ```
 
-Packet sizes:
+## Polling Engine
+
+**Current Configuration:**
 
 ```text
-Header              12 bytes
-SensorDataPayload   12 bytes
-Total               24 bytes
+MAX_NODES         = 1
+POLL_INTERVAL_MS  = 2000
+RESPONSE_TIMEOUT  = 200
 ```
 
----
-
-# Base Station
-
-## LocalSensorManager
-
-The Base contains `LocalSensorManager` for local environmental sensing.
-
-Current configuration:
-
-```cpp
-ENABLE_SHT41  = true;
-ENABLE_BME280 = false;
-```
-
-I²C:
-
-```text
-SDA   = GPIO 8
-SCL   = GPIO 9
-Clock = 100 kHz
-```
-
-### SHT41
-
-```text
-Address: 0x44
-```
-
-Current implementation includes:
-
-* I²C communication
-* High precision measurement
-* Temperature conversion
-* Humidity conversion
-* CRC-8 validation
-* Humidity range limiting
-
----
-
-# Remote Sensor Node
-
-Current Node:
-
-```cpp
-NODE_ID = 1;
-```
-
-Current sensor configuration:
-
-```cpp
-ENABLE_SHT41  = false;
-ENABLE_BME280 = true;
-```
-
-BME280:
-
-```text
-I²C Address: 0x76
-SDA: GPIO 8
-SCL: GPIO 9
-```
-
-Current Node provides:
-
-```text
-Temperature
-Humidity
-Pressure
-```
-
-Sensor data is validated before transmission.
-
----
-
-# Polling Engine
-
-The Base uses `PollingEngine` to manage communication with remote Nodes.
-
-State machine:
+**State Machine:**
 
 ```text
 IDLE
-  ↓
+  |
 SEND_REQUEST
-  ↓
+  |
 WAIT_RESPONSE
-  ↓
+  |
 IDLE
 ```
 
-Current timing:
+Implemented functionality:
+- Node ID and sequence validation
+- Sensor data validation
+- Response timeout handling
+- Online/offline status tracking
+- ESP-NOW response handoff synchronization
+- Late and duplicate response handling
 
-```text
-Polling Interval : 2000 ms
-Response Timeout : 200 ms
-```
+## Sensor Configuration
 
-The engine handles:
+| Parameter | Base | Node 1 |
+|---|---|---|
+| MCU | ESP32-C3 | ESP32-C3 |
+| Sensor | SHT41 | BME280 |
+| Temperature | Yes | Yes |
+| Humidity | Yes | Yes |
+| Pressure | No | Yes |
+| I²C SDA | GPIO 8 | GPIO 8 |
+| I²C SCL | GPIO 9 | GPIO 9 |
 
-* Node polling
-* Sequence numbering
-* Response validation
-* Node ID validation
-* Sensor data validation
-* Timeout handling
-* Online/offline status
+**SHT41 Address:** `0x44`  
+**BME280 Address:** `0x76`
 
----
+## RTC & SD Logging
 
-# Node Manager
+**RTC:** DS3231  
+**Storage:** MicroSD (SdFat)  
+**Log File:** `log_wb2.csv`
 
-`NodeManager` maintains configured Node information.
-
-Current development configuration:
-
-```cpp
-MAX_NODES = 1;
-```
-
-Each Node contains:
-
-```text
-Node ID
-MAC Address
-Online Status
-Last Response
-```
-
-The one-Node configuration is intentional for the current hardware testing stage.
-
----
-
-# RTC Integration
-
-The Base uses a **DS3231 RTC** through `RTCManager`.
-
-Modules:
-
-```text
-src/base/RTCManager.cpp
-src/base/RTCManager.h
-```
-
-I²C:
-
-```text
-SDA = GPIO 8
-SCL = GPIO 9
-```
-
-Available functions:
-
-```cpp
-begin()
-update()
-isOK()
-now()
-setDateTime()
-```
-
-RTC timestamps are used by the SD logging system.
-
-Timestamp format:
-
-```text
-YYYY-MM-DD HH:MM:SS
-```
-
-Example:
-
-```text
-2026-10-01 10:30:15
-```
-
-The firmware currently does not automatically overwrite the RTC using compile time.
-
----
-
-# SD Card Integration
-
-The Base uses `SDLogger` for sensor data logging.
-
-Modules:
-
-```text
-src/base/SDLogger.cpp
-src/base/SDLogger.h
-```
-
-SD interface:
+**SD SPI Configuration:**
 
 ```text
 SCK  = GPIO 4
 MISO = GPIO 5
 MOSI = GPIO 6
 CS   = GPIO 10
+Speed = 10 MHz
 ```
 
-SPI speed:
+**CSV Format:**
 
-```text
-10 MHz
-```
-
-Log file:
-
-```text
-log_wb2.csv
-```
-
-CSV header:
-
-```text
-Timestamp,
-Node_ID,
-Temperature_C,
-Humidity_PCT,
-Pressure_hPa,
-Flags
-```
-
-Example:
-
-```text
+```csv
+Timestamp,Node_ID,Temperature_C,Humidity_PCT,Pressure_hPa,Flags
 2026-10-01 10:31:02,1,32.81,62.45,1012.32,0x07
 2026-10-01 10:31:04,0,32.95,68.82,NA,0x03
 ```
 
-`Node_ID = 0` represents the Base local sensor.
+- `Node_ID = 0`: Base local sensor
+- `Node_ID = 1`: Remote Node
+- Unavailable values: `NA`
+- Timestamp: `YYYY-MM-DD HH:MM:SS`
+- SD writing is handled outside the ESP-NOW receive callback.
+- Invalid local sensor readings are excluded from logging.
 
-Unavailable sensor values are stored as:
+## PlatformIO
 
-```text
-NA
-```
+**Platform:** Espressif32  
+**Board:** LOLIN C3 Mini  
+**Framework:** Arduino  
+**Serial Monitor:** 115200 baud
 
----
-
-# Data Flow
-
-### Remote Node
-
-```text
-Node Sensor
-    ↓
-SENSOR_DATA
-    ↓
-ESP-NOW
-    ↓
-Base RX Callback
-    ↓
-PollingEngine Validation
-    ↓
-SDLogger
-```
-
-### Local Sensor
-
-```text
-LocalSensorManager
-    ↓
-SensorDataPayload
-    ↓
-RTC Timestamp
-    ↓
-SDLogger
-    ↓
-log_wb2.csv
-```
-
-SD writing is performed from the main loop rather than directly inside the ESP-NOW callback.
-
----
-
-# Project Structure
-
-```text
-WeatherBus_2/
-│
-├── common/
-│   └── weatherbus_protocol.h
-│
-├── include/
-│
-├── lib/
-│
-├── src/
-│   ├── base/
-│   │   ├── main.cpp
-│   │   ├── local_sensor_manager.cpp
-│   │   ├── local_sensor_manager.h
-│   │   ├── node_manager.cpp
-│   │   ├── node_manager.h
-│   │   ├── polling_engine.cpp
-│   │   ├── polling_engine.h
-│   │   ├── RTCManager.cpp
-│   │   ├── RTCManager.h
-│   │   ├── SDLogger.cpp
-│   │   └── SDLogger.h
-│   │
-│   └── node/
-│       └── main.cpp
-│
-├── test/
-│
-├── Documentation/
-│   └── Upload and Serial
-│
-└── platformio.ini
-```
-
----
-
-# PlatformIO
-
-Platform:
-
-```text
-Espressif32
-```
-
-Board:
-
-```text
-LOLIN C3 Mini
-```
-
-Framework:
-
-```text
-Arduino
-```
-
-Serial:
-
-```text
-115200 baud
-```
-
-Available environments:
-
-```text
-base
-node
-```
-
-Build Base:
+**Build:**
 
 ```bash
 pio run -e base
-```
-
-Upload Base:
-
-```bash
-pio run -e base -t upload
-```
-
-Build Node:
-
-```bash
 pio run -e node
 ```
 
-Upload Node:
+**Upload:**
 
 ```bash
+pio run -e base -t upload
 pio run -e node -t upload
 ```
 
----
+## Development Milestones
 
-# Dependencies
+| Phase / Component | Description | Status |
+|---|---|---|
+| Phase 1 | ESP-NOW Base ↔ Node Communication | PASS |
+| Phase 2A | SHT41 Sensor Integration | PASS |
+| Phase 2B.1 – 2B.7 | Packet Validation, Polling, Timeout & Recovery | PASS |
+| Phase 2C.1 – 2C.5 | BME280 Integration, Sensor Flags & Error Handling | PASS |
+| Phase 2C.6 | Sensor Validation & Regression Testing | CONDITIONAL PASS |
+| RTC Integration | DS3231, RTCManager & Timestamp | COMPLETED |
+| SD Integration | SdFat, CSV Logging & Sensor Data Storage | COMPLETED |
+| Transport Abstraction | ESP-NOW Transport Interface & Driver | COMPLETED |
+| Firmware Refactoring | Service, Interface & Driver Separation | COMPLETED |
+| Node Sensor Abstraction | SHT41 / BME280 Driver Separation | COMPLETED |
+| Local Sensor Logging Fix | Skip Invalid Local Sensor Readings | COMPLETED |
+| ESP-NOW Response Handoff | Response Synchronization & Validation | COMPLETED |
+| Response Testing | Normal, Late & Duplicate Responses | PASS |
+| Hardware Testing | Base + 1 Remote Node | PASS |
+| Multi-Node Testing | Additional Node Hardware Testing | PENDING |
+| Long-Duration Testing | Continuous Operation & Stability | PENDING |
 
-### Base
+**Current Stage:** Stability Testing & Data Collection
 
-```text
-Adafruit BME280 Library
-Adafruit Unified Sensor
-SdFat
-RTClib
-```
+**Development Baseline:** `2832261`
 
-### Node
+## Latest Development Updates
 
-```text
-Adafruit BME280 Library
-SdFat
-```
+**14 October 2026**
 
----
+- Fixed local sensor SD logging validation.
+- Removed unintended project files.
+- Synchronized ESP-NOW response handoff.
+- Verified normal, late, and duplicate responses.
+- Passed build and hardware tests.
+- Updated and pushed changes to `main`.
 
-# Development Phases
+**Development Baseline:** `2832261`
 
-```text
-Phase 1
-PASS
+## Next Development
 
-Phase 2A
-PASS
+- Continuous Base + Node data collection
+- Long-duration stability testing
+- Monitor sensor and SD logging reliability
+- Additional multi-node testing when hardware is available
+- Further firmware refinement as required
 
-Phase 2B.1
-PASS
+## Development Notes
 
-Phase 2B.2
-PASS
+WeatherBus V1.0 remains under active development and is not production-ready.
 
-Phase 2B.3
-PASS
-
-Phase 2B.4
-PASS
-
-Phase 2B.5
-PASS
-
-Phase 2B.6
-PASS
-
-Phase 2B.7
-PASS
-
-Phase 2C.1
-PASS
-
-Phase 2C.2
-PASS
-
-Phase 2C.3
-PASS
-
-Phase 2C.4
-PASS
-
-Phase 2C.5
-PASS
-
-Phase 2C.6
-CONDITIONAL PASS
-
-RTC Integration
-IMPLEMENTED
-
-SD Integration
-IMPLEMENTED
-```
-
----
-
-# Current Development Focus
-
-Current development is focused on validating the complete Base data pipeline:
-
-```text
-Local Sensor
-      +
-Remote Node
-      ↓
-WeatherBus Validation
-      ↓
-RTC Timestamp
-      ↓
-SDLogger
-      ↓
-CSV Storage
-```
-
-Current testing priorities:
-
-* Node communication stability
-* Local sensor reliability
-* RTC timestamp accuracy
-* SD write reliability
-* Combined local and remote logging
-* Node timeout and recovery
-* Long-duration operation
-
----
-
-# Development Notes
-
-WeatherBus is currently an **experimental embedded development project**.
-
-Hardware configuration, firmware architecture, protocol implementation and module interfaces may change during development.
-
-The current one-Node configuration is intended for hardware testing and does not represent the final system configuration.
-
----
+The current stable development configuration uses one Base and one remote Node. Hardware configuration, firmware interfaces, and protocol implementation may change.
 
 ## License
 
-This project is currently maintained as a personal development project.
+Personal development project. License not yet specified.
