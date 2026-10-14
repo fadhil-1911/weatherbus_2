@@ -8,20 +8,18 @@
 
 ## Overview
 
-WeatherBus V1.0 is an experimental wireless environmental monitoring system built on ESP32-C3 using ESP-NOW communication.
+WeatherBus V1.0 is an experimental ESP32-C3 wireless environmental monitoring system using ESP-NOW communication.
 
-The system supports local and remote environmental sensors, RTC timestamping, and MicroSD data logging.
+The system supports local and remote environmental sensors, RTC timestamping, sensor data validation, fault handling, and MicroSD CSV logging.
 
 **Current Configuration:**
 - 1 × Base Station (ESP32-C3)
 - 1 × Remote Node (ESP32-C3)
 - ESP-NOW communication
 - SHT41 (Base)
-- BME280 (Node)
+- BME280 (Node 1)
 - DS3231 RTC
 - MicroSD storage
-
-The current configuration is intended for development, hardware testing, and continuous environmental data collection.
 
 ## Development Status
 
@@ -34,10 +32,13 @@ The current configuration is intended for development, hardware testing, and con
 | Polling Engine | PASS |
 | Node Manager | PASS |
 | Sensor Data Validation | PASS |
-| RTC Integration | IMPLEMENTED |
-| SD Card Integration | IMPLEMENTED |
+| BME280 Fault Handling & Recovery | PASS |
+| Partial / Complete Sensor Failure Tests | PASS |
+| RTC Integration | COMPLETED |
+| SD Card Integration | COMPLETED |
+| SD CSV Validity Verification | PASS |
 | ESP-NOW Response Handoff | PASS |
-| Late/Duplicate Response Tests | PASS |
+| Late / Duplicate Response Tests | PASS |
 | Local Sensor Logging Validation | PASS |
 | Single Base + Node Hardware Test | PASS |
 | Multi-Node Hardware Test | PENDING |
@@ -46,45 +47,43 @@ The current configuration is intended for development, hardware testing, and con
 ## System Architecture
 
 ```text
-                WeatherBus Base
-                   ESP32-C3
-                       |
-           +-----------+-----------+
-           |                       |
-      Local Sensor               ESP-NOW
-         SHT41                     |
-           |                    Node 1
-           |                   ESP32-C3
-           |                       |
-           |                     BME280
-           |                       |
-           +-----------+-----------+
-                       |
-                Data Validation
-                       |
-                 RTC Timestamp
-                       |
-                   SDLogger
-                       |
-                  log_wb2.csv
+                 WeatherBus Base
+                    ESP32-C3
+                        |
+            +-----------+-----------+
+            |                       |
+       Local Sensor               ESP-NOW
+          SHT41                     |
+            |                    Node 1
+            |                   ESP32-C3
+            |                       |
+            |                     BME280
+            |                       |
+            +-----------+-----------+
+                        |
+                 Data Validation
+                        |
+                  RTC Timestamp
+                        |
+                    SDLogger
+                        |
+                   log_wb2.csv
 ```
 
 ## Firmware Architecture
 
-WeatherBus uses a modular firmware architecture separating application logic, services, interfaces, and hardware drivers.
+Modular firmware architecture with separated application logic, services, interfaces, and hardware drivers.
 
 ```text
 Application
     |
-  Services
+ Services
     |
- Interfaces
+Interfaces
     ^
     |
-  Drivers
+ Drivers
 ```
-
-The architecture is intended to simplify hardware changes, testing, and future expansion.
 
 ## Communication
 
@@ -104,9 +103,7 @@ DATA_REQUEST = 0x02
 |---|---|
 | WeatherBus Header | 12 bytes |
 | SensorDataPayload | 12 bytes |
-| Total | 24 bytes |
-
-**Sensor Data:**
+| Total SENSOR_DATA Packet | 24 bytes |
 
 ```cpp
 struct SensorDataPayload {
@@ -126,31 +123,28 @@ FLAG_PRESSURE_VALID    = 0x04
 
 ## Polling Engine
 
-**Current Configuration:**
-
 ```text
-MAX_NODES         = 1
-POLL_INTERVAL_MS  = 2000
-RESPONSE_TIMEOUT  = 200
+MAX_NODES           = 1
+POLL_INTERVAL_MS    = 2000
+RESPONSE_TIMEOUT_MS = 200
 ```
 
 **State Machine:**
 
 ```text
 IDLE
-  |
+ |
 SEND_REQUEST
-  |
+ |
 WAIT_RESPONSE
-  |
+ |
 IDLE
 ```
 
-Implemented functionality:
+Implemented:
 - Node ID and sequence validation
-- Sensor data validation
 - Response timeout handling
-- Online/offline status tracking
+- Node online/offline tracking
 - ESP-NOW response handoff synchronization
 - Late and duplicate response handling
 
@@ -169,6 +163,35 @@ Implemented functionality:
 **SHT41 Address:** `0x44`  
 **BME280 Address:** `0x76`
 
+## Sensor Validity & Fault Handling
+
+BME280 supports independent parameter validation, sensor recovery attempts, and continued ESP-NOW communication during sensor failures.
+
+**Hardware Test Results — 2026-10-14**
+
+| Test | Scenario | Flags | Status |
+|---|---|---|---|
+| T0 | Normal Readings | `0x07` | PASS |
+| T1 | Temperature Invalid | `0x06` | PASS |
+| T2 | Humidity Invalid | `0x05` | PASS |
+| T3 | Pressure Invalid | `0x03` | PASS |
+| T4 | All Parameters Invalid | `0x00` | PASS |
+| Recovery | Return to Normal Operation | `0x07` | PASS |
+
+**Verified Behaviour:**
+- Independent temperature, humidity, and pressure validity flags
+- Invalid readings excluded from valid sensor values
+- BME280 recovery attempts on invalid readings
+- Continued `SENSOR_DATA` transmission during complete sensor failure
+- Base receives `0x00` flags without treating the packet as valid measurements
+- Polling continues during sensor failure
+- Normal sensor operation restored after fault simulation
+
+**Observed Response Time:**
+- Normal operation: approximately 6 ms
+- Injected sensor failure with recovery attempt: approximately 131–149 ms
+- Response timeout: 200 ms
+
 ## RTC & SD Logging
 
 **RTC:** DS3231  
@@ -178,10 +201,10 @@ Implemented functionality:
 **SD SPI Configuration:**
 
 ```text
-SCK  = GPIO 4
-MISO = GPIO 5
-MOSI = GPIO 6
-CS   = GPIO 10
+SCK   = GPIO 4
+MISO  = GPIO 5
+MOSI  = GPIO 6
+CS    = GPIO 10
 Speed = 10 MHz
 ```
 
@@ -189,16 +212,32 @@ Speed = 10 MHz
 
 ```csv
 Timestamp,Node_ID,Temperature_C,Humidity_PCT,Pressure_hPa,Flags
-2026-10-01 10:31:02,1,32.81,62.45,1012.32,0x07
-2026-10-01 10:31:04,0,32.95,68.82,NA,0x03
+2026-10-14 22:36:24,1,NA,54.82,1014.15,0x06
+2026-10-14 22:40:23,1,24.55,NA,1014.21,0x05
+2026-10-14 22:07:36,1,NA,NA,NA,0x00
 ```
 
 - `Node_ID = 0`: Base local sensor
 - `Node_ID = 1`: Remote Node
-- Unavailable values: `NA`
+- Invalid or unavailable parameters: `NA`
 - Timestamp: `YYYY-MM-DD HH:MM:SS`
-- SD writing is handled outside the ESP-NOW receive callback.
-- Invalid local sensor readings are excluded from logging.
+- SD writes are handled outside ESP-NOW receive callbacks
+- Invalid local sensor readings are excluded from logging
+- Remote sensor validity flags are preserved in CSV records
+
+**CSV Verification — 2026-10-14**
+
+| Test | Node Records | Status |
+|---|---:|---|
+| T0 — Normal | 575 | PASS |
+| T1 — Temperature Invalid | 109 | PASS |
+| T2 — Humidity Invalid | 69 | PASS |
+| T3 — Pressure Invalid | 135 | PASS |
+| T4 — All Invalid | 583 | PASS |
+
+**Total Verified Records:** 2,997  
+**Base Records:** 1,526  
+**Node 1 Records:** 1,471
 
 ## PlatformIO
 
@@ -238,40 +277,55 @@ pio run -e node -t upload
 | Local Sensor Logging Fix | Skip Invalid Local Sensor Readings | COMPLETED |
 | ESP-NOW Response Handoff | Response Synchronization & Validation | COMPLETED |
 | Response Testing | Normal, Late & Duplicate Responses | PASS |
+| BME280 Validity Testing | T0–T4 Sensor Failure Simulation | PASS |
+| BME280 Fault Handling | Partial / Complete Failure & Recovery Attempts | PASS |
+| SD CSV Verification | Validity Flags & NA Storage | PASS |
+| Sensor Recovery Verification | Return to Normal Readings | PASS |
 | Hardware Testing | Base + 1 Remote Node | PASS |
 | Multi-Node Testing | Additional Node Hardware Testing | PENDING |
 | Long-Duration Testing | Continuous Operation & Stability | PENDING |
 
 **Current Stage:** Stability Testing & Data Collection
 
-**Development Baseline:** `2832261`
+**Latest Development Commit:** `ce455e3`  
+**Development Branch:** `Sensor_Validity_Handling`  
+**Main Baseline:** `795c039`
 
 ## Latest Development Updates
 
 **14 October 2026**
 
-- Fixed local sensor SD logging validation.
-- Removed unintended project files.
+- Improved BME280 sensor validity and fault handling.
+- Verified independent temperature, humidity, and pressure validity flags.
+- Completed T0–T4 sensor failure simulation tests.
+- Verified continued ESP-NOW communication during complete sensor failure.
+- Confirmed return to normal sensor operation.
+- Verified CSV storage of invalid sensor parameters using `NA`.
+- Confirmed RTC and SD logging operation during testing.
 - Synchronized ESP-NOW response handoff.
 - Verified normal, late, and duplicate responses.
-- Passed build and hardware tests.
-- Updated and pushed changes to `main`.
+- Created and pushed `Sensor_Validity_Handling` branch.
 
-**Development Baseline:** `2832261`
+**Latest Commit:**
+
+```text
+ce455e3 fix: improve BME280 sensor validity and fault handling
+```
 
 ## Next Development
 
+- Merge validated sensor handling changes into `main`
 - Continuous Base + Node data collection
 - Long-duration stability testing
 - Monitor sensor and SD logging reliability
-- Additional multi-node testing when hardware is available
+- Additional multi-node hardware testing
 - Further firmware refinement as required
 
 ## Development Notes
 
 WeatherBus V1.0 remains under active development and is not production-ready.
 
-The current stable development configuration uses one Base and one remote Node. Hardware configuration, firmware interfaces, and protocol implementation may change.
+The current hardware test configuration consists of one Base Station and one remote Node. Firmware architecture and hardware configuration may change during development.
 
 ## License
 
