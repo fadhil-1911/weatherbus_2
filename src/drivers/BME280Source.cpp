@@ -7,6 +7,12 @@
 #include <Wire.h>
 #include <math.h>
 
+// BME280 calibration offsets
+namespace {
+constexpr float TEMP_OFFSET = -0.68F;
+constexpr float HUM_OFFSET = +8.98F;
+}
+
 BME280Source::BME280Source(uint8_t address)
     : _address(address) {
 }
@@ -113,6 +119,12 @@ bool BME280Source::read(
             return false;
         }
     }
+
+    // Apply calibration after successful validation
+    temperature += TEMP_OFFSET;
+    humidity += HUM_OFFSET;
+
+    humidity = constrain(humidity, 0.0F, 100.0F);
 
     reading.temperature = temperature;
     reading.humidity = humidity;
