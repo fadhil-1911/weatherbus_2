@@ -45,10 +45,8 @@ bool SDLogger::createLogFile() {
     logFile = sd.open(LOG_FILE, FILE_WRITE);
 
     if (!logFile) {
-        Serial.println(F("[SD] Failed to create log_wb2.csv"));
-
+        Serial.println(F("[SD] Failed to create CSV"));
         sdStatus = false;
-
         return false;
     }
 
@@ -60,10 +58,17 @@ bool SDLogger::createLogFile() {
         "Pressure_hPa,"
         "Flags");
 
+    bool writeOK = !logFile.getWriteError();
+    bool syncOK = logFile.sync();
     logFile.close();
 
-    Serial.println(F("[SD] CSV header created"));
+    if (!writeOK || !syncOK) {
+        Serial.println(F("[SD] CSV header write failed"));
+        sdStatus = false;
+        return false;
+    }
 
+    Serial.println(F("[SD] CSV header created"));
     return true;
 }
 
@@ -74,6 +79,7 @@ bool SDLogger::logSensorData(
     float humidity,
     float pressure,
     uint8_t flags) {
+
     if (!sdStatus) {
         return false;
     }
@@ -85,7 +91,6 @@ bool SDLogger::logSensorData(
         Serial.println(F("[SD] Logging disabled until reset"));
 
         sdStatus = false;
-
         return false;
     }
 
@@ -133,7 +138,21 @@ bool SDLogger::logSensorData(
 
     logFile.println(flags, HEX);
 
+    // Verify write operation
+    bool writeOK = !logFile.getWriteError();
+
+    // Flush data to SD
+    bool syncOK = logFile.sync();
+
+    // Close file
     logFile.close();
+
+    if (!writeOK || !syncOK) {
+        Serial.println(F("[SD] CSV write/sync failed"));
+
+        sdStatus = false;
+        return false;
+    }
 
     return true;
 }
