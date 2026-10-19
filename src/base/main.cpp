@@ -47,21 +47,19 @@ IDataLogger& dataLogger = sdLogger;
 // RTC TIMESTAMP
 // =====================================================
 
-void getTimestamp(
-    char* buffer,
-    size_t bufferSize) {
+bool getTimestamp(char* buffer, size_t bufferSize) {
+    if (!rtcClock.isOK() || bufferSize < 20) {
+        return false;
+    }
+
     DateTime now = rtcClock.now();
 
-    snprintf(
-        buffer,
-        bufferSize,
-        "%04d-%02d-%02d %02d:%02d:%02d",
-        now.year(),
-        now.month(),
-        now.day(),
-        now.hour(),
-        now.minute(),
-        now.second());
+    snprintf(buffer, bufferSize,
+             "%04d-%02d-%02d %02d:%02d:%02d",
+             now.year(), now.month(), now.day(),
+             now.hour(), now.minute(), now.second());
+
+    return true;
 }
 
 // =====================================================
@@ -329,13 +327,63 @@ void loop() {
 
     if (currentMillis - lastUpdate >= 1000) {
         lastUpdate = currentMillis;
-        rtcClock.update();
-        if (!rtcClock.isOK()) {
-            Serial.println(
-                F("RTC ERROR"));
-            return;
+
+        static bool rtcInitialized = false;
+        static bool rtcWasOK = false;
+
+        bool rtcOK = rtcClock.update();
+
+        if (!rtcInitialized) {
+            // Bacaan pertama selepas boot
+            if (rtcOK) {
+                Serial.print(F("[RTC] Initial update OK; timestamp: "));
+
+                DateTime now = rtcClock.now();
+
+                Serial.printf(
+                    "%04d-%02d-%02d %02d:%02d:%02d\n",
+                    now.year(),
+                    now.month(),
+                    now.day(),
+                    now.hour(),
+                    now.minute(),
+                    now.second());
+
+            } else {
+                Serial.println(F("[RTC] Initial update failed"));
+            }
+
+            rtcInitialized = true;
+        } else if (!rtcOK) {
+            Serial.println(F("[RTC] Update failed"));
+        } else if (!rtcWasOK) {
+            // RTC pulih selepas kegagalan sebelumnya
+            Serial.print(F("[RTC] Update OK; timestamp: "));
+
+            DateTime now = rtcClock.now();
+
+            Serial.printf(
+                "%04d-%02d-%02d %02d:%02d:%02d\n",
+                now.year(),
+                now.month(),
+                now.day(),
+                now.hour(),
+                now.minute(),
+                now.second());
+
+            Serial.println(F("[RTC] Recovered"));
         }
+
+        rtcWasOK = rtcOK;
     }
+    /*
+    if (currentMillis - lastUpdate >= 1000) {
+        lastUpdate = currentMillis;
+
+        if (!rtcClock.update()) {
+            Serial.println(F("[RTC] Update failed"));
+        }
+    } */
 
     // =================================================
     // SD LOGGING - NODE
@@ -344,17 +392,20 @@ void loop() {
     if (nodeLogPending) {
         nodeLogPending = false;
         char timestamp[20];
-        getTimestamp(timestamp, sizeof(timestamp));
-        if (dataLogger.logSensorData(
-                timestamp,
-                pendingLogNodeId,
-                pendingLogTemperature,
-                pendingLogHumidity,
-                pendingLogPressure,
-                pendingLogFlags)) {
 
-            Serial.println(
-                F("[SD] Node sensor logged"));
+        if (getTimestamp(timestamp, sizeof(timestamp))) {
+            if (dataLogger.logSensorData(
+                    timestamp,
+                    pendingLogNodeId,
+                    pendingLogTemperature,
+                    pendingLogHumidity,
+                    pendingLogPressure,
+                    pendingLogFlags)) {
+
+                Serial.println(F("[SD] Node sensor logged"));
+            }
+        } else {
+            Serial.println(F("[RTC] Invalid timestamp; Node logging skipped"));
         }
     }
 
@@ -398,23 +449,27 @@ void loop() {
 
         Serial.println(
             "==================================");
-
         // -------------------------------------------------
         // SD logging - Local Sensor
         // -------------------------------------------------
 
         if (sensorReadOK) {
             char timestamp[20];
-            getTimestamp(timestamp, sizeof(timestamp));
 
-            if (dataLogger.logSensorData(
-                    timestamp,
-                    0,
-                    data.temperature,
-                    data.humidity,
-                    data.pressure,
-                    flags)) {
-                Serial.println(F("[SD] Local sensor logged"));
+            if (getTimestamp(timestamp, sizeof(timestamp))) {
+                if (dataLogger.logSensorData(
+                        timestamp,
+                        0,
+                        data.temperature,
+                        data.humidity,
+                        data.pressure,
+                        flags)) {
+
+                    Serial.println(F("[SD] Local sensor logged"));
+                }
+            } else {
+                Serial.println(
+                    F("[RTC] Invalid timestamp; local logging skipped"));
             }
         }
     }
