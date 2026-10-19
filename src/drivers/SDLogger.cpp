@@ -6,39 +6,69 @@
 
 SDLogger::SDLogger(uint8_t csPin)
     : csPin(csPin),
-      sdStatus(false) {
+      sdStatus(false),
+      lastRetryMs(0) {
 }
 
 bool SDLogger::begin() {
+
     Serial.println(F("[SD] Initializing..."));
 
-    // SPI pins:
-    // SCK  = GPIO 4
-    // MISO = GPIO 5
-    // MOSI = GPIO 6
-    // CS   = GPIO 10
+    sdStatus = false;
+
+    // Ensure previous file handle is closed
+    if (logFile) {
+        logFile.close();
+    }
+
     SPI.begin(4, 5, 6, 10);
 
     if (!sd.begin(csPin, SD_SCK_MHZ(10))) {
         Serial.println(F("[SD] Initialization failed"));
-
-        sdStatus = false;
-
         return false;
+    }
+
+    Serial.println(F("[SD] Card OK"));
+
+    // Create CSV if missing
+    if (!sd.exists(LOG_FILE)) {
+        if (!createLogFile()) {
+            return false;
+        }
+    } else {
+        Serial.print(F("[SD] "));
+        Serial.print(LOG_FILE);
+        Serial.println(F(" found"));
     }
 
     sdStatus = true;
 
-    Serial.println(F("[SD] Card OK"));
+    return true;
+}
 
-    // Create log.csv and CSV header if the file does not exist.
-    if (!sd.exists(LOG_FILE)) {
-        return createLogFile();
+void SDLogger::update() {
+
+    // SD is healthy, no recovery needed
+    if (sdStatus) {
+        return;
     }
 
-    Serial.println(F("[SD] log_wb2.csv found"));
+    uint32_t now = millis();
 
-    return true;
+    // Wait 5 seconds between retries
+    if (now - lastRetryMs < RETRY_INTERVAL_MS) {
+        return;
+    }
+
+    lastRetryMs = now;
+
+    Serial.println(F("[SD] Attempting recovery..."));
+
+    if (begin()) {
+        Serial.println(F("[SD] Recovery successful"));
+    } else {
+        Serial.println(F("[SD] Recovery failed"));
+    }
 }
 
 bool SDLogger::createLogFile() {
@@ -87,10 +117,12 @@ bool SDLogger::logSensorData(
     logFile = sd.open(LOG_FILE, FILE_WRITE);
 
     if (!logFile) {
-        Serial.println(F("[SD] Failed to open log.csv"));
-        Serial.println(F("[SD] Logging disabled until reset"));
+        Serial.print(F("[SD] Failed to open "));
+        Serial.println(LOG_FILE);
+        Serial.println(F("[SD] Logging paused, waiting for recovery"));
 
         sdStatus = false;
+        lastRetryMs = millis();
         return false;
     }
 
@@ -151,6 +183,7 @@ bool SDLogger::logSensorData(
         Serial.println(F("[SD] CSV write/sync failed"));
 
         sdStatus = false;
+        lastRetryMs = millis();
         return false;
     }
 

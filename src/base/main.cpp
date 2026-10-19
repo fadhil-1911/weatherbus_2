@@ -158,13 +158,6 @@ void onValidNodeResponse(
 
     nodeLogPending = true;
 }
-/*
-    pendingLogNodeId = packet.header.nodeId;
-    pendingLogTemperature = packet.payload.temperature;
-    pendingLogHumidity = packet.payload.humidity;
-    pendingLogPressure = packet.payload.pressure;
-    pendingLogFlags = packet.header.flags;
-    nodeLogPending = true; */
 
 // =====================================================
 // Add all Node peers
@@ -307,6 +300,7 @@ void setup() {
 // =====================================================
 
 void loop() {
+
     // -------------------------------------------------
     // Transport
     // -------------------------------------------------
@@ -318,6 +312,12 @@ void loop() {
     // -------------------------------------------------
 
     pollingEngine.update();
+
+    // -------------------------------------------------
+    // SD Logger
+    // -------------------------------------------------
+
+    sdLogger.update();
 
     // -------------------------------------------------
     // RTC
@@ -403,13 +403,10 @@ void loop() {
         // SD logging - Local Sensor
         // -------------------------------------------------
 
-        char timestamp[20];
-
-        getTimestamp(timestamp, sizeof(timestamp));
-        timestamp,
-            sizeof(timestamp);
-
         if (sensorReadOK) {
+            char timestamp[20];
+            getTimestamp(timestamp, sizeof(timestamp));
+
             if (dataLogger.logSensorData(
                     timestamp,
                     0,
