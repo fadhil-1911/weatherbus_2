@@ -1,13 +1,13 @@
 # WeatherBus
-**Development Version:** 1.0 &#x20;
 
-**Status:** In Development &#x20;
-
+**Development Version:** 1.0  
+**Status:** In Development  
 **Last Updated:** 2026-10-19
 
-
 ---
+
 ## Overview
+
 WeatherBus V1.0 is an experimental ESP32-C3 wireless environmental monitoring system using ESP-NOW communication.
 
 The system supports local and remote environmental sensors, RTC timestamping, sensor data validation, fault handling, and MicroSD CSV logging.
@@ -21,6 +21,8 @@ The system supports local and remote environmental sensors, RTC timestamping, se
 - BME280 (Node 1)
 - DS3231 RTC
 - MicroSD storage
+
+---
 
 ## Development Status
 
@@ -55,105 +57,109 @@ The system supports local and remote environmental sensors, RTC timestamping, se
 | Multi-Node Hardware Test | PENDING |
 | Long-Duration System Stability Test | PENDING |
 
+---
+
 ## System Architecture
+
 ```text
-
-
-&#x20;              WeatherBus Base
-&#x20;                 ESP32-C3
-&#x20;                     |
-&#x20;         +-----------+-----------+
-&#x20;         |                       |
-&#x20;    Local Sensor               ESP-NOW
-&#x20;       SHT41                     |
-&#x20;         |                    Node 1
-&#x20;         |                   ESP32-C3
-&#x20;         |                       |
-&#x20;         |                     BME280
-&#x20;         |                       |
-&#x20;         +-----------+-----------+
-&#x20;                     |
-&#x20;              Data Validation
-&#x20;                     |
-&#x20;               RTC Timestamp
-&#x20;                     |
-&#x20;                  SDLogger
-&#x20;                     |
-&#x20;                log_wb2.csv
-
-
-
+              WeatherBus Base
+                 ESP32-C3
+                     |
+         +-----------+-----------+
+         |                       |
+    Local Sensor               ESP-NOW
+       SHT41                     |
+         |                    Node 1
+         |                   ESP32-C3
+         |                       |
+         |                     BME280
+         |                       |
+         +-----------+-----------+
+                     |
+              Data Validation
+                     |
+               RTC Timestamp
+                     |
+                  SDLogger
+                     |
+                log_wb2.csv
 ```
+
+---
+
 ## Firmware Architecture
+
 Modular firmware architecture with separated application logic, services, interfaces, and hardware drivers.
 
 ```text
-
 Application
-&#x20;   |
-&#x20;Services
-&#x20;   |
+    |
+ Services
+    |
 Interfaces
-&#x20;   ^
-&#x20;   |
-&#x20;Drivers
-
+    ^
+    |
+ Drivers
 ```
+
+---
 
 ## Communication
-**Transport:** ESP-NOW &#x20;
 
+**Transport:** ESP-NOW  
 **Protocol Version:** `0x01`
-### Packet Types
-```cpp
 
+### Packet Types
+
+```cpp
 SENSOR_DATA  = 0x01
 DATA_REQUEST = 0x02
-
 ```
+
 ### Packet Structure
+
 | Field | Size |
 |---|---:|
 | WeatherBus Header | 12 bytes |
 | SensorDataPayload | 12 bytes |
 | Total SENSOR_DATA Packet | 24 bytes |
 
-
 ```cpp
-
 struct SensorDataPayload {
-&#x20;   float temperature;
-&#x20;   float humidity;
-&#x20;   float pressure;
+    float temperature;
+    float humidity;
+    float pressure;
 };
-
 ```
-### Validation Flags
-```cpp
 
+### Validation Flags
+
+```cpp
 FLAG_TEMPERATURE_VALID = 0x01
 FLAG_HUMIDITY_VALID    = 0x02
 FLAG_PRESSURE_VALID    = 0x04
-
 ```
-## Polling Engine
-```text
 
+---
+
+## Polling Engine
+
+```text
 MAX_NODES           = 1
 POLL_INTERVAL_MS    = 2000
 RESPONSE_TIMEOUT_MS = 200
-
 ```
+
 ### State Machine
+
 ```text
 IDLE
-&#x20; |
+ |
 SEND_REQUEST
-&#x20; |
+ |
 WAIT_RESPONSE
-&#x20; |
+ |
 IDLE
-
 ```
 
 Implemented:
@@ -164,7 +170,10 @@ Implemented:
 - ESP-NOW response handoff synchronization
 - Late and duplicate response handling
 
+---
+
 ## Sensor Configuration
+
 | Parameter | Base | Node 1 |
 |---|---|---|
 | MCU | ESP32-C3 | ESP32-C3 |
@@ -175,14 +184,17 @@ Implemented:
 | I²C SDA | GPIO 8 | GPIO 8 |
 | I²C SCL | GPIO 9 | GPIO 9 |
 
-
-**SHT41 Address:** `0x44` &#x20;
+**SHT41 Address:** `0x44`  
 **BME280 Address:** `0x76`
 
+---
+
 ## Sensor Validity & Fault Handling
+
 BME280 supports independent parameter validation, sensor recovery attempts, and continued ESP-NOW communication during sensor failures.
 
 ### Hardware Test Results — 2026-10-14
+
 | Test | Scenario | Flags | Status |
 |---|---|---|---|
 | T0 | Normal Readings | `0x07` | PASS |
@@ -193,6 +205,7 @@ BME280 supports independent parameter validation, sensor recovery attempts, and 
 | Recovery | Return to Normal Operation | `0x07` | PASS |
 
 ### Verified Behaviour
+
 - Independent temperature, humidity, and pressure validity flags
 - Invalid readings excluded from valid sensor values
 - BME280 recovery attempts on invalid readings
@@ -202,34 +215,36 @@ BME280 supports independent parameter validation, sensor recovery attempts, and 
 - Normal sensor operation restored after fault simulation
 
 ### Observed Response Time
+
 - Normal operation: approximately 6 ms
 - Injected sensor failure with recovery attempt: approximately 131–149 ms
 - Response timeout: 200 ms
 
+---
+
 ## RTC & SD Logging
-**RTC:** DS3231 &#x20;
 
-**Storage:** MicroSD (SdFat) &#x20;
-
+**RTC:** DS3231  
+**Storage:** MicroSD (SdFat)  
 **Log File:** `log_wb2.csv`
-### SD SPI Configuration
-```text
 
+### SD SPI Configuration
+
+```text
 SCK   = GPIO 4
 MISO  = GPIO 5
 MOSI  = GPIO 6
 CS    = GPIO 10
 Speed = 10 MHz
-
 ```
-### CSV Format
-```csv
 
+### CSV Format
+
+```csv
 Timestamp,Node_ID,Temperature_C,Humidity_PCT,Pressure_hPa,Flags
 2026-10-14 22:36:24,1,NA,54.82,1014.15,0x06
 2026-10-14 22:40:23,1,24.55,NA,1014.21,0x05
 2026-10-14 22:07:36,1,NA,NA,NA,0x00
-
 ```
 
 - `Node_ID = 0`: Base local sensor
@@ -245,6 +260,7 @@ Timestamp,Node_ID,Temperature_C,Humidity_PCT,Pressure_hPa,Flags
 - SD write and sync results are checked before a record is reported as successfully logged
 
 ### RTC Reliability — SYS-R1
+
 Runtime hardware testing verified the following behaviour:
 
 - RTC disconnection is detected through failed RTC updates.
@@ -257,6 +273,7 @@ Runtime hardware testing verified the following behaviour:
 **SYS-R1 status: CONDITIONAL PASS.** The disconnect-and-reconnect recovery scenario passed. Repeated recovery cycles and long-duration RTC reliability testing remain pending.
 
 ### CSV Verification — 2026-10-14
+
 | Test | Node Records | Status |
 |---|---:|---|
 | T0 — Normal | 575 | PASS |
@@ -265,33 +282,37 @@ Runtime hardware testing verified the following behaviour:
 | T3 — Pressure Invalid | 135 | PASS |
 | T4 — All Invalid | 583 | PASS |
 
-**Total Verified Records:** 2,997 &#x20;
-**Base Records:** 1,526 &#x20;
+**Total Verified Records:** 2,997  
+**Base Records:** 1,526  
 **Node 1 Records:** 1,471
 
+---
+
 ## PlatformIO
-**Platform:** Espressif32 &#x20;
 
-**Board:** LOLIN C3 Mini &#x20;
-
-**Framework:** Arduino &#x20;
-
+**Platform:** Espressif32  
+**Board:** LOLIN C3 Mini  
+**Framework:** Arduino  
 **Serial Monitor:** 115200 baud
-### Build
-```bash
 
+### Build
+
+```bash
 pio run -e base
 pio run -e node
-
 ```
-### Upload
-```bash
 
+### Upload
+
+```bash
 pio run -e base -t upload
 pio run -e node -t upload
-
 ```
+
+---
+
 ## Development Milestones
+
 | Phase / Component | Description | Status |
 |---|---|---|
 | Phase 1 | ESP-NOW Base ↔ Node Communication | PASS |
@@ -318,12 +339,15 @@ pio run -e node -t upload
 | Multi-Node Testing | Additional Node Hardware Testing | PENDING |
 | Long-Duration System Testing | Continuous Operation & Stability | PENDING |
 
-
-**Current Stage:** Stability Testing & Data Collection &#x20;
-
+**Current Stage:** Stability Testing & Data Collection  
 **Development Baseline:** `f18d568`
 
-## Latest Development Updates### 19 October 2026 — RTC Reliability (SYS-R1)
+---
+
+## Latest Development Updates
+
+### 19 October 2026 — RTC Reliability (SYS-R1)
+
 - Added RTC update diagnostics distinguishing the first update after boot from recovery.
 - Added timestamp validity checks before local and remote logging.
 - Verified RTC disconnect detection and rejection of invalid timestamps.
@@ -332,15 +356,14 @@ pio run -e node -t upload
 - The tested RTC disconnect/reconnect scenario passed; repeated recovery cycles and long-duration testing remain pending.
 - SYS-R1 overall status: CONDITIONAL PASS.
 
-
 **RTC Reliability Commit:**
 
 ```text
-
 cd73f04 test: improve RTC reliability and recovery
-
 ```
+
 ### 19 October 2026 — SD Logger Recovery
+
 - Added periodic SD recovery attempts at 5-second intervals.
 - Added checks for SD logging write and sync failures.
 - Reinitializes the SD logger after detected failures.
@@ -349,20 +372,21 @@ cd73f04 test: improve RTC reliability and recovery
 **SD Logger Recovery Commit:**
 
 ```text
-
 6246284 fix: add automatic SD logging recovery
-
 ```
+
 ### 19 October 2026 — SD + RTC Integration Test
+
 - Tested runtime RTC disconnection followed by SD card disconnection.
 - SD recovery attempts continued while the card was unavailable; recovery succeeded after reconnection.
 - RTC updates failed while the RTC was disconnected, and invalid timestamps were rejected for local and remote logging.
 - ESP-NOW polling and node responses continued during the RTC outage.
-- After RTC reconnection, the RTC reported a valid timestamp and recovery without reboot.
+- After RTC reconnection, the RTC reported a valid timestamp and recovered without reboot.
 - Local and remote sensor logging resumed after recovery.
 - Integration test status: PASS for the tested sequential disconnect/reconnect scenario. Simultaneous disconnection, repeated cycles, and long-duration stability are not established by this test.
 
 ### 14 October 2026 — Sensor Validation & Response Handling
+
 - Improved BME280 sensor validity and fault handling.
 - Verified independent temperature, humidity, and pressure validity flags.
 - Completed T0–T4 sensor failure simulation tests.
@@ -375,11 +399,13 @@ cd73f04 test: improve RTC reliability and recovery
 **Historical Commit:**
 
 ```text
-
 ce455e3 fix: improve BME280 sensor validity and fault handling
-
 ```
+
+---
+
 ## Next Development
+
 - Complete repeated RTC disconnect/reconnect recovery tests.
 - Perform long-duration RTC, SD logging, and system stability testing.
 - Continue Base + Node data collection.
@@ -387,11 +413,16 @@ ce455e3 fix: improve BME280 sensor validity and fault handling
 - Monitor sensor and SD logging reliability.
 - Refine firmware as required.
 
-## Development Notes
-WeatherBus V1.0 remains under active development and is not production-ready.
+---
 
+## Development Notes
+
+WeatherBus V1.0 remains under active development and is not production-ready.
 
 The current hardware test configuration consists of one Base Station and one remote Node. Firmware architecture and hardware configuration may change during development.
 
+---
+
 ## License
+
 Personal development project. License not yet specified.
