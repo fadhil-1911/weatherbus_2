@@ -6,7 +6,7 @@
 
 #include <Arduino.h>
 #include "node_manager.h"
-#include "../interfaces/ITransport.h"
+#include "../../interfaces/ITransport.h"
 #include <freertos/FreeRTOS.h>
 #include <freertos/portmacro.h>
 
@@ -48,7 +48,7 @@ class PollingEngine {
         WAIT_RESPONSE
     };
 
-    // ESP-NOW RX synchronization
+        // ESP-NOW RX synchronization
     portMUX_TYPE responseMux = portMUX_INITIALIZER_UNLOCKED;
 
     NodeManager& nodeManager;

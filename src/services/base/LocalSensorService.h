@@ -7,7 +7,7 @@
 #include <Arduino.h>
 
 #include "../common/weatherbus_protocol.h"
-#include "../interfaces/ISensorSource.h"
+#include "../../interfaces/ISensorSource.h"
 
 class LocalSensorService {
   public:

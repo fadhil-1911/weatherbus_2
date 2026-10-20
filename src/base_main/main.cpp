@@ -1,7 +1,7 @@
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //                    WeatherBus
 //                   Version: 1.0
-//             Last Updated: 2026-10-19
+//             Last Updated: 2026-10-20
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 /*
   Module  : Base Station - Main Application: 
@@ -13,10 +13,10 @@
 #include "../common/weatherbus_protocol.h"
 
 #include <Wire.h>
-#include "node_manager.h"
-#include "polling_engine.h"
+#include "../config/base/node_config.h"
+#include "../services/base/polling_engine.h"
 #include "../drivers/RTCClock.h"
-#include "../services/LocalSensorService.h"
+#include "../services/base/LocalSensorService.h"
 #include "../drivers/SHT41Source.h"
 #include "../drivers/SDLogger.h"
 #include "../interfaces/IDataLogger.h"

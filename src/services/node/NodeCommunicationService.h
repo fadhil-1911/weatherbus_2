@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include "../interfaces/ITransport.h"
-#include "../interfaces/ISensorSource.h"
+#include "../../interfaces/ITransport.h"
+#include "../../interfaces/ISensorSource.h"
 
 class NodeCommunicationService {
   public:

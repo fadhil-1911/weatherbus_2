@@ -7,7 +7,7 @@
 
 #include <Arduino.h>
 //#include "../config/node_config.h"
-#include "config/node_config.h"
+#include "../../config/base/node_config.h"
 
 struct NodeInfo
 {

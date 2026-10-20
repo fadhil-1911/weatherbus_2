@@ -6,7 +6,7 @@
 
 #include <cstring>
 
-#include "../node/config/node_settings.h"
+#include "../../config/node/node_settings.h"
 #include "../common/weatherbus_protocol.h"
 
 using namespace WeatherBus;

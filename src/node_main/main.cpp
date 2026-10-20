@@ -1,7 +1,7 @@
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //                    WeatherBus
 //                   Version: 1.0
-//             Last Updated: 2026-10-14
+//             Last Updated: 2026-10-20
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 /*
   Module    : Sensor Node - Main Application
@@ -11,11 +11,11 @@
 
 #include <Arduino.h>
 #include <Wire.h>
-#include "config/node_settings.h"
+#include "../config/node/node_settings.h"
 #include "../drivers/BME280Source.h"
 #include "../drivers/SHT41Source.h"
 #include "../drivers/ESPNowTransport.h"
-#include "../services/NodeCommunicationService.h"
+#include "../services/node/NodeCommunicationService.h"
 
 #include "../common/weatherbus_protocol.h"
 
