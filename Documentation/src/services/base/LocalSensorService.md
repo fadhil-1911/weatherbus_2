@@ -48,7 +48,7 @@ The source code describes the service behaviour but does not, by itself, establi
 
 
 TREE FLOW
-
+```text
 LocalSensorService
 │
 ├── Constructor(sensorSource)
@@ -93,3 +93,5 @@ LocalSensorService
     └── Check flags
         ├── flags != 0 → Return true
         └── flags == 0 → Return false
+
+```

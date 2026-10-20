@@ -129,7 +129,7 @@ Hardware and long-duration test results must be recorded separately.
 
 
 TREE FLOW
-
+```text
 PollingEngine
 ├── Constructor(nodeManager, transport)
 │   ├── Store NodeManager reference
@@ -246,3 +246,4 @@ PollingEngine
 │
 └── setValidResponseCallback(callback)
     └── Store valid response callback
+```

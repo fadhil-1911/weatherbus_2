@@ -82,7 +82,7 @@ Runtime and hardware test status must be confirmed separately.
 
 
 TREE FLOW
-
+```text
 NodeManager
 ├── Constructor()
 │   └── For each configured node
@@ -127,3 +127,4 @@ NodeManager
     │   ├── No → return
     │   └── Yes → Set online = false
     └── End
+```

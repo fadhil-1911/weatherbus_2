@@ -127,7 +127,7 @@ Hardware and integration test results should be recorded separately.
 
 
 TREE FLOW
-
+```text
 NodeCommunicationService
 ├── Constructor(transport, bme280Source, sht41Source)
 │   ├── Store transport reference
@@ -253,3 +253,4 @@ NodeCommunicationService
     │       └── Print transport send error
     │
     └── End processRequest
+```

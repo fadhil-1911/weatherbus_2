@@ -174,7 +174,7 @@ Hardware testing should verify sensor detection, valid measurements, CRC failure
 
 
 TREE FLOW
-
+```text
 SHT41Source
 ├── Constructor()
 │   └── available = false
@@ -235,3 +235,4 @@ SHT41Source
     ├── Set temperatureValid = true
     ├── Set humidityValid = true
     └── return true
+```
