@@ -77,3 +77,53 @@ Unknown node IDs are ignored. The function does not reset `lastResponse`.
 **Code review:** Behaviour documented from the implementation.
 
 Runtime and hardware test status must be confirmed separately.
+
+
+
+
+TREE FLOW
+
+NodeManager
+├── Constructor()
+│   └── For each configured node
+│       ├── Copy nodeId from NODE_CONFIGS
+│       ├── Copy MAC address from NODE_CONFIGS
+│       ├── Set online = false
+│       └── Set lastResponse = 0
+│
+├── begin()
+│   ├── Print "Node Manager"
+│   ├── For each configured node
+│   │   └── Print node ID configured
+│   └── Print blank line
+│
+├── getNodeCount()
+│   └── return NODE_COUNT
+│
+├── getNode(index)
+│   ├── Check index >= NODE_COUNT
+│   │   └── Yes → return nullptr
+│   └── return &nodes[index]
+│
+├── getNodeById(nodeId)
+│   ├── Search all configured nodes
+│   ├── Matching node ID found?
+│   │   ├── Yes → return pointer to node
+│   │   └── No → Continue searching
+│   └── No match → return nullptr
+│
+├── markOnline(nodeId)
+│   ├── Find node using getNodeById()
+│   ├── Node found?
+│   │   ├── No → return
+│   │   └── Yes
+│   │       ├── Set online = true
+│   │       └── Set lastResponse = millis()
+│   └── End
+│
+└── markOffline(nodeId)
+    ├── Find node using getNodeById()
+    ├── Node found?
+    │   ├── No → return
+    │   └── Yes → Set online = false
+    └── End

@@ -169,3 +169,69 @@ The driver does not set pressure or a pressure-validity flag.
 **Code review:** Initialization, I2C communication, response-length checking, CRC validation, measurement conversion, humidity clamping, and validity-flag handling are documented from the provided implementation.
 
 Hardware testing should verify sensor detection, valid measurements, CRC failures, incomplete I2C responses, and recovery after communication errors.
+
+
+
+
+TREE FLOW
+
+SHT41Source
+├── Constructor()
+│   └── available = false
+│
+├── sht41Crc8(data, length)
+│   ├── Initialize CRC = 0xFF
+│   ├── For each data byte
+│   │   ├── XOR byte with CRC
+│   │   └── Process 8 bits
+│   │       ├── MSB set → Shift left and XOR 0x31
+│   │       └── MSB not set → Shift left
+│   └── return CRC
+│
+├── setupSHT41()
+│   ├── Start I2C transmission to address 0x44
+│   ├── Send high-precision measurement command (0xFD)
+│   ├── Transmission failed?
+│   │   └── Yes → Print error → return false
+│   ├── Delay 10 ms
+│   ├── Print communication OK
+│   └── return true
+│
+├── begin()
+│   ├── Print "SHT41 Source"
+│   ├── Call setupSHT41()
+│   ├── Store result in available
+│   ├── If unavailable
+│   │   └── Print unavailable message
+│   └── return available
+│
+├── readSHT41(temperature, humidity)
+│   ├── Send measurement command (0xFD)
+│   │   └── Transmission failed → return false
+│   ├── Delay 10 ms
+│   ├── Request 6 bytes from SHT41
+│   │   └── Received bytes != 6 → return false
+│   ├── Read 6 data bytes
+│   ├── Validate temperature CRC
+│   │   └── Failed → Print error → return false
+│   ├── Validate humidity CRC
+│   │   └── Failed → Print error → return false
+│   ├── Extract raw temperature and humidity values
+│   ├── Convert raw temperature
+│   │   └── T = -45 + 175 × (rawTemperature / 65535)
+│   ├── Convert raw humidity
+│   │   └── RH = -6 + 125 × (rawHumidity / 65535)
+│   ├── Clamp humidity to 0–100%
+│   └── return true
+│
+└── read(reading)
+    ├── Initialize temperature and humidity to 0
+    ├── Set temperatureValid = false
+    ├── Set humidityValid = false
+    ├── Is available == false?
+    │   └── Yes → return false
+    ├── Call readSHT41()
+    │   └── Failed → return false
+    ├── Set temperatureValid = true
+    ├── Set humidityValid = true
+    └── return true

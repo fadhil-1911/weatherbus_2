@@ -145,3 +145,143 @@ Serial output reports raw measurements, invalid readings, and recovery results.
 **Code review:** Class structure, measurement validation, calibration, recovery, and output handling are documented from the provided source.
 
 Hardware test results should be recorded separately.
+
+
+
+
+
+
+
+
+
+## WeatherBus_2 — `BME280Source.cpp` Flow Tree
+
+```text
+BME280Source
+│
+├── Constructor(address)
+│   └── Store BME280 I2C address
+│
+├── begin()
+│   ├── Initialize BME280 using Wire
+│   ├── Success → Return true
+│   └── Failure → Print error → Return false
+│
+├── recover()
+│   ├── Attempt BME280 reinitialization
+│   ├── Success → Return true
+│   └── Failure → Print error → Return false
+│
+├── Validation Functions
+│   │
+│   ├── isTemperatureValid(value)
+│   │   ├── Must be finite
+│   │   └── Must be > -40°C and < 85°C
+│   │
+│   ├── isHumidityValid(value)
+│   │   ├── Must be finite
+│   │   └── Must be between 0–100%
+│   │
+│   └── isPressureValid(value)
+│       ├── Must be finite
+│       └── Must be between 300–1100 hPa
+│
+└── read(SensorReading& reading)
+    │
+    ├── Reset SensorReading
+    │
+    ├── Read raw sensor values
+    │   ├── Temperature (°C)
+    │   ├── Humidity (%)
+    │   └── Pressure (hPa)
+    │
+    ├── Print raw readings
+    │
+    ├── Validate each measurement
+    │   ├── Temperature
+    │   ├── Humidity
+    │   └── Pressure
+    │
+    ├── Any measurement invalid?
+    │   │
+    │   ├── NO
+    │   │   └── Continue to calibration
+    │   │
+    │   └── YES
+    │       │
+    │       ├── Call recover()
+    │       │
+    │       ├── Recovery failed?
+    │       │   └── YES → Return false
+    │       │
+    │       └── Recovery successful
+    │           ├── Read all measurements again
+    │           ├── Validate all measurements again
+    │           │
+    │           └── All three measurements invalid?
+    │               ├── YES → Return false
+    │               └── NO  → Continue to calibration
+    │
+    ├── Apply calibration to valid readings
+    │   │
+    │   ├── Valid temperature
+    │   │   └── Add TEMP_OFFSET (-0.68°C)
+    │   │
+    │   ├── Valid humidity
+    │   │   ├── Add HUM_OFFSET (+8.98%)
+    │   │   └── Clamp to 0–100%
+    │   │
+    │   └── Pressure
+    │       └── No calibration offset
+    │
+    ├── Store readings
+    │   ├── Valid value → Store measurement
+    │   └── Invalid value → Store 0.0
+    │
+    ├── Store validity flags
+    │   ├── temperatureValid
+    │   ├── humidityValid
+    │   └── pressureValid
+    │
+    └── Return true
+```
+
+### RECOVERING LOGIC
+
+```text
+Read Sensor
+    │
+    ▼
+Validate Measurements
+    │
+    ├── Semua valid ───────────────┐
+    │                              │
+    └── Ada yang tidak valid       │
+            │                      │
+            ▼                      │
+        Recover Sensor             │
+            │                      │
+            ├── Gagal → false       │
+            │                      │
+            ▼                      │
+        Read Again                 │
+            │                      │
+            ▼                      │
+        Validate Again             │
+            │                      │
+            ├── Semua invalid      │
+            │       └── false      │
+            │                      │
+            └── Sekurang-kurangnya │
+                satu valid ─────────┘
+                       │
+                       ▼
+                Calibrate Valid Data
+                       │
+                       ▼
+                Store Values & Flags
+                       │
+                       ▼
+                   Return true
+```
+

@@ -125,3 +125,124 @@ Registers the callback that receives valid sensor responses.
 **Code review:** Polling states, request handling, response validation, timeout handling, and node progression are documented from the implementation.
 
 Hardware and long-duration test results must be recorded separately.
+
+
+
+TREE FLOW
+
+PollingEngine
+├── Constructor(nodeManager, transport)
+│   ├── Store NodeManager reference
+│   ├── Store ITransport reference
+│   ├── Set state = IDLE
+│   ├── Set currentNodeIndex = 0
+│   ├── Initialize sequenceNumber and expectedSequence = 0
+│   ├── Initialize timestamps = 0
+│   ├── Set responsePending = false
+│   └── Initialize pending response data
+│
+├── begin()
+│   ├── Set state = IDLE
+│   ├── Set stateTimestamp = millis()
+│   ├── Set responsePending = false
+│   └── Print "Polling Engine ready"
+│
+├── update()
+│   ├── Get current time
+│   ├── Call processPendingResponse()
+│   ├── Refresh current time
+│   └── Process state machine
+│       ├── IDLE
+│       │   ├── Check POLL_INTERVAL_MS elapsed
+│       │   │   ├── Yes → Set state = SEND_REQUEST
+│       │   │   └── No → Remain IDLE
+│       │
+│       ├── SEND_REQUEST
+│       │   └── Call sendRequest()
+│       │
+│       └── WAIT_RESPONSE
+│           ├── Check RESPONSE_TIMEOUT_MS elapsed
+│           │   ├── Yes → Call handleTimeout()
+│           │   └── No → Continue waiting
+│
+├── sendRequest()
+│   ├── Get node using currentNodeIndex
+│   ├── Node unavailable?
+│   │   └── Yes → Call moveToNextNode() → return
+│   ├── Build DATA_REQUEST header
+│   │   ├── Set protocolVersion
+│   │   ├── Set packetType = DATA_REQUEST
+│   │   ├── Set nodeId
+│   │   ├── Set flags = 0
+│   │   ├── Increment sequenceNumber
+│   │   ├── Store expectedSequence
+│   │   ├── Set payloadLength = 0
+│   │   ├── Set crc16 = 0
+│   │   └── Set reserved = 0
+│   ├── Build destination address from node MAC
+│   ├── Send request through transport
+│   │   ├── Failed
+│   │   │   └── Call handleTimeout()
+│   │   └── Successful
+│   │       ├── Set requestTimestamp = millis()
+│   │       ├── Set state = WAIT_RESPONSE
+│   │       └── Print transmission details
+│
+├── onSensorData(nodeId, sequence, flags, T, RH, P)
+│   ├── Enter critical section (responseMux)
+│   ├── Is responsePending == false?
+│   │   ├── Yes
+│   │   │   ├── Copy response fields into pending buffer
+│   │   │   └── Set responsePending = true
+│   │   └── No → Keep existing pending response
+│   └── Exit critical section
+│
+├── processPendingResponse()
+│   ├── Enter critical section (responseMux)
+│   ├── Is responsePending == false?
+│   │   └── Yes → Exit critical section → return
+│   ├── Copy pending response into local variables
+│   ├── Set responsePending = false
+│   └── Exit critical section
+│
+│   ├── Is state != WAIT_RESPONSE?
+│   │   └── Yes → Ignore response → return
+│   ├── Find node using received nodeId
+│   │   └── Unknown node → Print error → return
+│   ├── Get current node using currentNodeIndex
+│   │   └── Unavailable → return
+│   ├── Does received node match current node?
+│   │   └── No → Print unexpected node → return
+│   ├── Does sequence match expectedSequence?
+│   │   └── No → Print sequence mismatch → return
+│   │
+│   ├── Validate temperature if FLAG_TEMPERATURE_VALID is set
+│   │   └── Non-finite or outside -40 to 85°C → return
+│   ├── Validate humidity if FLAG_HUMIDITY_VALID is set
+│   │   └── Non-finite or outside 0 to 100% → return
+│   ├── Validate pressure if FLAG_PRESSURE_VALID is set
+│   │   └── Non-finite or outside 300 to 1100 hPa → return
+│   │
+│   ├── Mark node online
+│   ├── Calculate response time
+│   ├── Print received sensor data
+│   ├── Is validResponseCallback != nullptr?
+│   │   └── Yes → Invoke callback with sensor data
+│   └── Call moveToNextNode()
+│
+├── handleTimeout()
+│   ├── Get current node
+│   ├── If node exists
+│   │   ├── Mark node offline
+│   │   └── Print timeout message
+│   └── Call moveToNextNode()
+│
+├── moveToNextNode()
+│   ├── Increment currentNodeIndex
+│   ├── Is index >= node count?
+│   │   └── Yes → Reset currentNodeIndex = 0
+│   ├── Set stateTimestamp = millis()
+│   └── Set state = IDLE
+│
+└── setValidResponseCallback(callback)
+    └── Store valid response callback

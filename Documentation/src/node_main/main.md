@@ -104,3 +104,67 @@ Because `setupI2C()` currently returns `true` unconditionally, its failure branc
 This file defines application startup and loop behaviour. It does not, by itself, establish that every sensor configuration, startup failure, or communication scenario has passed testing.
 
 Record verified hardware and integration results separately.
+
+
+TREE FLOW
+
+Sensor Node - Main Application
+├── Global Objects
+│   ├── SHT41Source sht41Source
+│   ├── BME280Source bme280Source
+│   │   └── Initialize with BME280_I2C_ADDRESS
+│   ├── ESPNowTransport transport
+│   └── NodeCommunicationService
+│       ├── transport
+│       ├── bme280Source
+│       └── sht41Source
+│
+├── setupI2C()
+│   ├── Initialize I2C using I2C_SDA and I2C_SCL
+│   ├── Set I2C clock speed using I2C_CLOCK
+│   ├── Delay 10 ms
+│   ├── Print "I2C bus ready"
+│   └── return true
+│
+├── setup()
+│   ├── Initialize Serial (115200 baud)
+│   ├── Delay 1000 ms
+│   ├── Call setupI2C()
+│   │   └── Failed
+│   │       ├── Print initialization error
+│   │       └── Halt system
+│   ├── Print WeatherBus V1.0 information
+│   ├── Print NODE_ID
+│   ├── Print sensor configuration
+│   │
+│   ├── Is ENABLE_SHT41 == true?
+│   │   ├── Yes → Call sht41Source.begin()
+│   │   │   └── Failed
+│   │   │       ├── Print "SHT41 FAILED"
+│   │   │       └── Continue without temperature/humidity
+│   │   └── No → Skip SHT41 initialization
+│   │
+│   ├── Is ENABLE_BME280 == true?
+│   │   ├── Yes → Call bme280Source.begin()
+│   │   │   └── Failed
+│   │   │       ├── Print "BME280 FAILED"
+│   │   │       └── Continue without pressure
+│   │   └── No → Skip BME280 initialization
+│   │
+│   ├── Prepare Base Station address
+│   │   ├── Set address length = sizeof(baseMac)
+│   │   └── Copy baseMac into TransportAddress
+│   │
+│   ├── Call nodeCommunicationService.begin(baseAddress)
+│   │   ├── Failed
+│   │   │   ├── Print "SYSTEM HALTED"
+│   │   │   └── Halt system
+│   │   └── Successful
+│   │       ├── Print "ESP-NOW ready"
+│   │       └── Print "Node ready"
+│   └── End setup
+│
+└── loop()
+    ├── No periodic sensor polling
+    ├── Call nodeCommunicationService.update()
+    └── Respond only when a valid DATA_REQUEST is received

@@ -122,3 +122,134 @@ A successful return from `transport.send()` is logged as a successful send reque
 **Code review:** Request validation, sensor selection, packet construction, and transport handling are documented from the implementation.
 
 Hardware and integration test results should be recorded separately.
+
+
+
+
+TREE FLOW
+
+NodeCommunicationService
+├── Constructor(transport, bme280Source, sht41Source)
+│   ├── Store transport reference
+│   ├── Store BME280 sensor source reference
+│   └── Store SHT41 sensor source reference
+│
+├── begin(baseAddress)
+│   ├── Store Base Station address
+│   ├── Set instance = this
+│   ├── Initialize transport with onDataReceived callback
+│   │   └── Failed
+│   │       ├── Print initialization error
+│   │       ├── instance = nullptr
+│   │       └── return false
+│   ├── Add Base Station as peer
+│   │   └── Failed
+│   │       ├── Print peer error
+│   │       ├── ready = false
+│   │       └── return false
+│   ├── ready = true
+│   └── return true
+│
+├── onDataReceived(data, length)
+│   ├── Is instance == nullptr?
+│   │   └── Yes → return
+│   └── Call instance->handleReceivedData(data, length)
+│
+├── handleReceivedData(data, length)
+│   ├── Validate data pointer and packet size
+│   │   └── Invalid → Print error → return
+│   ├── Copy received data into Header
+│   ├── Validate protocol version
+│   │   └── Invalid → Print error → return
+│   ├── Validate packet type == DATA_REQUEST
+│   │   └── Invalid → Print error → return
+│   ├── Validate Node ID == NODE_ID
+│   │   └── Invalid → Print error → return
+│   ├── Validate payloadLength == 0
+│   │   └── Invalid → Print error → return
+│   ├── Enter critical section (requestMux)
+│   ├── Is requestPending == false?
+│   │   ├── Yes
+│   │   │   ├── Store request.sequence in pendingSequence
+│   │   │   ├── requestPending = true
+│   │   │   └── accepted = true
+│   │   └── No → Keep existing request pending
+│   ├── Exit critical section
+│   ├── If accepted
+│   │   └── Print DATA_REQUEST received
+│   └── Otherwise
+│       └── Print warning and ignore new request
+│
+├── update()
+│   ├── Is ready == false?
+│   │   └── Yes → return
+│   ├── Initialize sequence and hasRequest
+│   ├── Enter critical section (requestMux)
+│   ├── Is requestPending == true?
+│   │   ├── Yes
+│   │   │   ├── Copy pendingSequence to sequence
+│   │   │   ├── requestPending = false
+│   │   │   └── hasRequest = true
+│   │   └── No → No request to process
+│   ├── Exit critical section
+│   └── If hasRequest == true
+│       └── Call processRequest(sequence)
+│
+└── processRequest(requestSequence)
+    ├── Initialize temperature, humidity, pressure = 0
+    ├── Initialize sensorFlags = 0
+    │
+    ├── Read BME280
+    │   ├── Is ENABLE_BME280 == true?
+    │   │   ├── No → Skip BME280
+    │   │   └── Yes → Call bme280Source.read()
+    │   │       ├── Failed → Print warning
+    │   │       └── Successful
+    │   │           ├── Print sensor validity flags
+    │   │           ├── Store pressure
+    │   │           ├── If pressureValid
+    │   │           │   └── Set FLAG_PRESSURE_VALID
+    │   │           ├── If USE_BME280_TEMPERATURE
+    │   │           │   and temperatureValid
+    │   │           │   ├── Store BME280 temperature
+    │   │           │   └── Set FLAG_TEMPERATURE_VALID
+    │   │           └── If USE_BME280_HUMIDITY
+    │   │               and humidityValid
+    │   │               ├── Store BME280 humidity
+    │   │               └── Set FLAG_HUMIDITY_VALID
+    │
+    ├── Read SHT41
+    │   ├── Is ENABLE_SHT41 == true?
+    │   │   ├── No → Skip SHT41
+    │   │   └── Yes → Call sht41Source.read()
+    │   │       ├── Failed → Print warning
+    │   │       └── Successful
+    │   │           ├── If NOT USE_BME280_TEMPERATURE
+    │   │           │   and temperatureValid
+    │   │           │   ├── Store SHT41 temperature
+    │   │           │   └── Set FLAG_TEMPERATURE_VALID
+    │   │           └── If NOT USE_BME280_HUMIDITY
+    │   │               and humidityValid
+    │   │               ├── Store SHT41 humidity
+    │   │               └── Set FLAG_HUMIDITY_VALID
+    │
+    ├── Build SENSOR_DATA packet
+    │   ├── Set protocolVersion
+    │   ├── Set packetType = SENSOR_DATA
+    │   ├── Set nodeId = NODE_ID
+    │   ├── Set flags = sensorFlags
+    │   ├── Set sequence = requestSequence
+    │   ├── Set payloadLength = sizeof(SensorDataPayload)
+    │   ├── Set crc16 = 0
+    │   ├── Set reserved = 0
+    │   ├── Store temperature in payload
+    │   ├── Store humidity in payload
+    │   └── Store pressure in payload
+    │
+    ├── Send packet through transport.send()
+    │   ├── Send successful
+    │   │   └── Print SENSOR_DATA transmission details
+    │   └── Send failed
+    │       └── Print transport send error
+    │
+    └── End processRequest

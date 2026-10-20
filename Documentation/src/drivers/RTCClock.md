@@ -99,3 +99,84 @@ The implementation does not separately verify the result of `_rtc.adjust()`.
 **Code review:** Initialization, year validation, cached time handling, status reporting, and date/time adjustment are documented from the active implementation.
 
 RTC hardware and recovery test results should be recorded separately.
+
+
+
+
+
+## WeatherBus_2 — `RTCClock.cpp` Flow Tree
+
+```text
+RTCClock
+│
+├── begin()
+│   │
+│   ├── Initialize RTC device (_rtc.begin())
+│   │
+│   ├── Initialization failed?
+│   │   ├── YES → _status = false
+│   │   │         └── Return false
+│   │   │
+│   │   └── NO
+│   │       ├── _status = false
+│   │       └── Call update()
+│   │
+│   └── Return update() result
+│
+├── update()
+│   │
+│   ├── Read current RTC time (_rtc.now())
+│   │
+│   ├── Validate year
+│   │   ├── Year < 2020
+│   │   │   └── _status = false → Return false
+│   │   │
+│   │   ├── Year > 2100
+│   │   │   └── _status = false → Return false
+│   │   │
+│   │   └── Year within 2020–2100
+│   │       ├── Store current time in _now
+│   │       ├── _status = true
+│   │       └── Return true
+│
+├── isOK()
+│   └── Return _status
+│
+├── now()
+│   └── Return cached time (_now)
+│
+└── setDateTime(dateTime)
+    │
+    ├── Set RTC date and time (_rtc.adjust())
+    └── Call update()
+        └── Return update() result
+```
+
+### RTC STATUS FLOW
+
+```text
+begin()
+  │
+  ▼
+_rtc.begin()
+  │
+  ├── Failed → _status = false → Return false
+  │
+  └── Success
+        │
+        ▼
+   _status = false
+        │
+        ▼
+      update()
+        │
+        ├── Year invalid
+        │     └── _status = false → Return false
+        │
+        └── Year valid
+              ├── Update _now
+              ├── _status = true
+              └── Return true
+```
+
+

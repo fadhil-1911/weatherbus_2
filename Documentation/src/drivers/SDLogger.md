@@ -61,3 +61,85 @@ The header contains six columns:
 
 ```csv
 Timestamp,Node_ID,Temperature_C,Humidity_PCT,Pressure_hPa,Flags
+
+
+
+TREE FLOW
+
+SDLogger
+├── Constructor(csPin)
+│   ├── Store CS pin
+│   ├── sdStatus = false
+│   └── lastRetryMs = 0
+│
+├── begin()
+│   ├── Print initialization message
+│   ├── sdStatus = false
+│   ├── Close previous file handle if open
+│   ├── Initialize SPI (SCK=4, MISO=5, MOSI=6, CS=10)
+│   ├── Initialize SD card
+│   │   └── Failed → Print error → return false
+│   ├── Check whether LOG_FILE exists
+│   │   ├── No → createLogFile()
+│   │   │   └── Failed → return false
+│   │   └── Yes → Print file found message
+│   ├── sdStatus = true
+│   └── return true
+│
+├── createLogFile()
+│   ├── Open LOG_FILE using FILE_WRITE
+│   ├── Failed to open
+│   │   ├── sdStatus = false
+│   │   └── return false
+│   ├── Write CSV header
+│   │   └── Timestamp, Node_ID, Temperature_C,
+│   │       Humidity_PCT, Pressure_hPa, Flags
+│   ├── Check for write errors
+│   ├── Sync data to SD card
+│   ├── Close file
+│   ├── Write or sync failed
+│   │   ├── sdStatus = false
+│   │   └── return false
+│   └── return true
+│
+├── update()
+│   ├── Is sdStatus == true?
+│   │   └── Yes → return
+│   ├── Check time since last retry
+│   │   └── Less than 5 seconds → return
+│   ├── Update lastRetryMs
+│   ├── Call begin()
+│   │   ├── Successful → Print recovery successful
+│   │   └── Failed → Print recovery failed
+│   └── End
+│
+├── logSensorData(timestamp, nodeId, T, RH, P, flags)
+│   ├── Is sdStatus == false?
+│   │   └── Yes → return false
+│   ├── Open LOG_FILE using FILE_WRITE
+│   │   └── Failed
+│   │       ├── sdStatus = false
+│   │       ├── lastRetryMs = millis()
+│   │       └── return false
+│   ├── Write timestamp and nodeId
+│   ├── Write temperature
+│   │   ├── Flag 0x01 set → Write temperature (2 decimal places)
+│   │   └── Otherwise → Write "NA"
+│   ├── Write humidity
+│   │   ├── Flag 0x02 set → Write humidity (2 decimal places)
+│   │   └── Otherwise → Write "NA"
+│   ├── Write pressure
+│   │   ├── Flag 0x04 set → Write pressure (2 decimal places)
+│   │   └── Otherwise → Write "NA"
+│   ├── Write sensor flags in hexadecimal format
+│   ├── Check for write errors
+│   ├── Sync data to SD card
+│   ├── Close file
+│   ├── Write or sync failed
+│   │   ├── sdStatus = false
+│   │   ├── lastRetryMs = millis()
+│   │   └── return false
+│   └── return true
+│
+└── isReady()
+    └── return sdStatus

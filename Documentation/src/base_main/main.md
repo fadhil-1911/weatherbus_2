@@ -194,3 +194,142 @@ has been tested against the current commit.
 
 Refer to the project's testing documentation for the recorded test
 results and remaining limitations.
+
+
+
+
+TREE FLOW
+
+TREE FLOW
+
+BASE STATION : main.cpp
+│
+├── GLOBAL OBJECTS
+│   │
+│   ├── NodeManager
+│   ├── ESPNowTransport
+│   ├── RTCClock
+│   ├── PollingEngine
+│   │   ├── NodeManager
+│   │   └── ESPNowTransport
+│   ├── SHT41Source
+│   ├── LocalSensorService
+│   │   └── SHT41Source
+│   ├── SDLogger
+│   └── IDataLogger
+│       └── SDLogger
+│
+├── HELPER FUNCTIONS
+│   │
+│   ├── getTimestamp()
+│   │   └── Read RTC time and format timestamp
+│   │
+│   ├── onTransportDataReceived()
+│   │   ├── Validate packet size
+│   │   ├── Validate protocol version
+│   │   ├── Validate packet type
+│   │   ├── Validate payload length
+│   │   └── Forward SENSOR_DATA to PollingEngine
+│   │
+│   ├── onValidNodeResponse()
+│   │   └── Store Node data in pending log buffer
+│   │
+│   ├── setupPeers()
+│   │   ├── Read Node list from NodeManager
+│   │   ├── Convert MAC to TransportAddress
+│   │   └── Add each Node as ESP-NOW peer
+│   │
+│   ├── setupTransport()
+│   │   ├── Initialize ESPNowTransport
+│   │   └── Call setupPeers()
+│   │
+│   └── setupI2C()
+│       ├── Initialize I2C (SDA 8, SCL 9)
+│       └── Set clock to 100 kHz
+│
+├── setup()
+│   │
+│   ├── Initialize Serial
+│   ├── setupI2C()
+│   ├── nodeManager.begin()
+│   ├── localSensorService.begin()
+│   ├── dataLogger.begin()
+│   ├── rtcClock.begin()
+│   │   └── rtcClock.update()
+│   ├── setupTransport()
+│   │   ├── transport.begin()
+│   │   └── setupPeers()
+│   │
+│   ├── IF transport initialization fails
+│   │   └── SYSTEM HALTED
+│   │
+│   ├── pollingEngine.begin()
+│   ├── Register onValidNodeResponse()
+│   └── Delay 5 seconds
+│
+└── loop()
+    │
+    ├── 1. TRANSPORT
+    │   └── transport.update()
+    │
+    ├── 2. POLLING
+    │   └── pollingEngine.update()
+    │
+    ├── 3. SD LOGGER
+    │   └── sdLogger.update()
+    │
+    ├── 4. RTC UPDATE (every 1 second)
+    │   ├── rtcClock.update()
+    │   ├── Detect initial RTC status
+    │   ├── Report update failure
+    │   └── Report recovery after failure
+    │
+    ├── 5. NODE SD LOGGING
+    │   ├── Check nodeLogPending
+    │   ├── Get RTC timestamp
+    │   ├── dataLogger.logSensorData()
+    │   └── Clear pending flag
+    │
+    └── 6. LOCAL SENSOR (every 2 seconds)
+        │
+        ├── localSensorService.readSensors()
+        ├── Display sensor values and flags
+        │
+        └── IF sensorReadOK
+            ├── Get RTC timestamp
+            ├── dataLogger.logSensorData()
+            └── Log local sensor data to SD
+
+
+
+NODE DATA FLOW
+
+
+Sensor Node
+    │
+    │ ESP-NOW: SENSOR_DATA
+    ▼
+transport.begin(callback)
+    │
+    ▼
+onTransportDataReceived()
+    │
+    ├── Validate packet
+    │
+    ▼
+pollingEngine.onSensorData()
+    │
+    ├── Validate response
+    ├── Update Node status
+    └── Invoke valid response callback
+            │
+            ▼
+    onValidNodeResponse()
+            │
+            └── Store data in pending log buffer
+                        │
+                        ▼
+                    loop()
+                        │
+                        ├── Get RTC timestamp
+                        └── Write data to SD card

@@ -139,3 +139,141 @@ Returns the current value of `ready`.
 **Code review:** Initialization, peer registration, transmission, callback-based reception, and readiness reporting are documented from the provided source.
 
 Hardware communication and packet-delivery test results should be recorded separately.
+
+
+
+
+
+
+## WeatherBus_2 — `ESPNowTransport.cpp` Flow Tree
+
+```text
+ESPNowTransport
+│
+├── GLOBAL
+│   └── instance
+│       └── Static pointer to ESPNowTransport object
+│
+├── Constructor()
+│   ├── receiveCallback = nullptr
+│   ├── ready = false
+│   └── instance = this
+│
+├── begin(callback)
+│   │
+│   ├── Store receive callback
+│   ├── Set Wi-Fi mode to WIFI_STA
+│   ├── Print Base MAC address
+│   │
+│   ├── Initialize ESP-NOW
+│   │   ├── Failed → ready = false → Return false
+│   │   └── Success
+│   │       ├── Register onDataReceived()
+│   │       ├── ready = true
+│   │       └── Return true
+│
+├── addPeer(address)
+│   │
+│   ├── Check transport ready
+│   │   └── Not ready → Return false
+│   │
+│   ├── Validate address length
+│   │   └── Invalid → Return false
+│   │
+│   ├── Prepare peer information
+│   │   ├── Copy peer MAC address
+│   │   ├── Channel = 0
+│   │   └── Encryption = disabled
+│   │
+│   ├── Call esp_now_add_peer()
+│   │   ├── Failed → Return false
+│   │   └── Success → Return true
+│
+├── send(destination, data, length)
+│   │
+│   ├── Check transport ready
+│   │   └── Not ready → Return false
+│   │
+│   ├── Validate destination address length
+│   │   └── Invalid → Return false
+│   │
+│   ├── Validate data pointer and length
+│   │   └── Invalid → Return false
+│   │
+│   ├── Call esp_now_send()
+│   │   ├── API error → Return false
+│   │   └── API accepted → Return true
+│
+├── update()
+│   └── No periodic processing
+│       └── ESP-NOW uses callbacks
+│
+├── isReady()
+│   └── Return ready status
+│
+├── onDataReceived(mac, data, len)
+│   │
+│   ├── Ignore sender MAC
+│   ├── Check instance exists
+│   │   └── No instance → Return
+│   ├── Validate data pointer and length
+│   │   └── Invalid → Return
+│   └── Call instance->handleReceive()
+│
+└── handleReceive(data, length)
+    │
+    ├── Check receiveCallback
+    │   └── nullptr → Return
+    │
+    └── Invoke receiveCallback(data, length)
+```
+
+### DATA SEND FLOW (TX)
+
+```text
+Caller
+  │
+  ▼
+send(destination, data, length)
+  │
+  ├── Validate transport status
+  ├── Validate destination
+  ├── Validate data
+  │
+  ▼
+esp_now_send()
+  │
+  ├── API error → Return false
+  │
+  └── API accepted → Return true
+```
+
+**Nota:** `send()` memulangkan `true` apabila panggilan `esp_now_send()` diterima tanpa ralat API. Ini tidak mengesahkan bahawa penerima telah menerima atau memproses paket tersebut.
+
+### DATA REACIVE FLOW (RX)
+
+```text
+Remote ESP-NOW Device
+        │
+        ▼
+ESP-NOW Receive Callback
+        │
+        ▼
+onDataReceived(mac, data, len)
+        │
+        ├── Check instance
+        ├── Check data and length
+        │
+        ▼
+handleReceive(data, length)
+        │
+        ├── Check receiveCallback
+        │
+        ▼
+receiveCallback(data, length)
+        │
+        ▼
+Caller handles packet
+(e.g. Base Station main.cpp)
+```
+
