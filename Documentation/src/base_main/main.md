@@ -198,10 +198,12 @@ results and remaining limitations.
 
 
 
-TREE FLOW
+```md
+# Base Station — `main.cpp`
 
-TREE FLOW
+## 1. Main Flow Tree
 
+```text
 BASE STATION : main.cpp
 │
 ├── GLOBAL OBJECTS
@@ -299,11 +301,12 @@ BASE STATION : main.cpp
             ├── Get RTC timestamp
             ├── dataLogger.logSensorData()
             └── Log local sensor data to SD
+```
 
+## 2. Node Data Flow
 
-
+```text
 NODE DATA FLOW
-
 
 Sensor Node
     │
@@ -333,3 +336,5 @@ pollingEngine.onSensorData()
                         │
                         ├── Get RTC timestamp
                         └── Write data to SD card
+```
+```
