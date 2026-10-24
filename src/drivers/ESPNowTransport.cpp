@@ -3,6 +3,7 @@
 // =====================================================
 
 #include "ESPNowTransport.h"
+#include "../services/debug/DebugSerial.h"
 
 #include <WiFi.h>
 #include <esp_now.h>
@@ -27,7 +28,12 @@ bool ESPNowTransport::begin(
     TransportReceiveCallback callback) {
     receiveCallback = callback;
 
+    //WiFi.mode(WIFI_STA);
+#if defined(WEATHERBUS_BASE)
+    WiFi.mode(WIFI_AP_STA);
+#else
     WiFi.mode(WIFI_STA);
+#endif
 
     Serial.print("Base MAC: ");
     Serial.println(WiFi.macAddress());

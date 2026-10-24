@@ -7,6 +7,7 @@
 #include <cmath>
 //#include "transport/Transport.h"
 #include "../common/weatherbus_protocol.h"
+#include "../debug/DebugSerial.h"
 
 using namespace WeatherBus;
 

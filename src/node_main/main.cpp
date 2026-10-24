@@ -6,7 +6,7 @@
 /*
   Module    : Sensor Node - Main Application
   Transport : ESP-NOW
-  Phase     : 
+  Phase   : wifi serial debug, ESP-NOW transport, SD logging, RTC timestamp
 */
 
 #include <Arduino.h>

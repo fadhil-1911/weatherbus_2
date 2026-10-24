@@ -3,6 +3,7 @@
 // =====================================================
 
 #include "BME280Source.h"
+#include "../services/debug/DebugSerial.h"
 
 #include <Wire.h>
 #include <math.h>

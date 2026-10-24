@@ -30,3 +30,10 @@ pio device monitor -p /dev/cu.usbmodem1301 -b 115200
 
 Node2 
 pio device monitor -p /dev/cu.usbmodem1201 -b 115200
+
+
+
+
+
+
+nc -v 192.168.4.1 3333

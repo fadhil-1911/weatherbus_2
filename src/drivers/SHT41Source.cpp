@@ -3,6 +3,7 @@
 // =====================================================
 
 #include "SHT41Source.h"
+#include "../services/debug/DebugSerial.h"
 
 #include <Wire.h>
 

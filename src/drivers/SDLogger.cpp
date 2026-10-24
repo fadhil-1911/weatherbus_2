@@ -3,6 +3,7 @@
 // =====================================================
 
 #include "SDLogger.h"
+#include "../services/debug/DebugSerial.h"
 
 SDLogger::SDLogger(uint8_t csPin)
     : csPin(csPin),

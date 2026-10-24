@@ -3,6 +3,7 @@
 // =====================================================
 
 #include "node_manager.h"
+#include "../debug/DebugSerial.h"
 
 NodeManager::NodeManager() {
     for (uint8_t i = 0; i < NODE_COUNT; i++) {

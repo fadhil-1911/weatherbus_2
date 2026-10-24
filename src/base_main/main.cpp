@@ -1,11 +1,11 @@
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //                    WeatherBus
 //                   Version: 1.0
-//             Last Updated: 2026-10-20
+//             Last Updated: 2026-10-24
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 /*
   Module  : Base Station - Main Application: 
-  Phase   : 
+  Phase   : wifi serial debug, ESP-NOW transport, SD logging, RTC timestamp
 */
 
 #include <Arduino.h>
@@ -21,10 +21,13 @@
 #include "../drivers/SDLogger.h"
 #include "../interfaces/IDataLogger.h"
 #include "../drivers/ESPNowTransport.h"
+#include "../services/debug/WirelessDebugService.h"
+#include "../services/debug/DebugSerial.h"
 
 NodeManager nodeManager;
 ESPNowTransport transport;
 RTCClock rtcClock;
+WirelessDebugService wirelessDebug;
 
 PollingEngine pollingEngine(
     nodeManager,
@@ -228,6 +231,12 @@ void setupI2C() {
 
 void setup() {
     Serial.begin(115200);
+
+    if (!wirelessDebug.begin()) {
+        Serial.println(
+            "[WiFi Debug] Initialization failed");
+    }
+
     setupI2C();
 
     Serial.println();
@@ -298,6 +307,11 @@ void setup() {
 // =====================================================
 
 void loop() {
+    // -------------------------------------------------
+    // Wireless Debug
+    // -------------------------------------------------
+
+    wirelessDebug.update();
 
     // -------------------------------------------------
     // Transport
