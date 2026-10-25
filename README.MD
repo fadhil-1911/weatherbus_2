@@ -31,7 +31,7 @@ The system supports local and remote environmental sensors, RTC timestamping, se
 
 ## Development Status
 
-| Component / Test | Status |
+| Component | Test | Status |
 
 | -------------------------------------------------- | -------------------------------------------------------------------------- |
 
@@ -490,8 +490,8 @@ Use `Ctrl+C` to close the TCP session. The `nc` (Netcat) utility is normally inc
 
 WeatherBus Base supports two modes for Web Dashboard access:
 
-- **AP Mode:** Base creates its own Wi-Fi network. Connect a phone or computer to the Base Wi-Fi, then open the dashboard using the Base AP IP address. No external router or hotspot is required.
-- **STA Mode:** Base connects to an existing Wi-Fi network or mobile hotspot. Connect the phone or computer to the same network, then open the dashboard using the Base IP address (e.g. `http://172.20.10.2/`). The IP may change depending on the network.
+- AP Mode: Base creates its own Wi-Fi network. Connect a phone or computer to the Base Wi-Fi, then open the dashboard using the Base AP IP address. No external router or hotspot is required.
+- STA Mode: Base connects to an existing Wi-Fi network or mobile hotspot. Connect the phone or computer to the same network, then open the dashboard using the Base IP address (e.g. `http://172.20.10.2/`). The IP may change depending on the network.
 
 **Dashboard API:**
 - `/local.json` — Local Base sensor data.
