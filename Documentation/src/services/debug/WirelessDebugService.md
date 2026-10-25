@@ -2,9 +2,11 @@
 
 ## 1. Purpose
 
-Provides a wireless debugging service for WeatherBus_2 using an ESP32 Wi-Fi access point and a TCP server.
+Provides a wireless debugging service for WeatherBus_2 using Wi-Fi and a TCP server.
 
-Allows an external TCP client to connect to the device and receive debug output through `DebugSerial`, while preserving the physical USB Serial output.
+Allows an external TCP client connected to the same network to receive debug output through `DebugSerial`, while preserving physical USB Serial output.
+
+The current implementation defaults to **Station (STA) mode**, connecting to an existing Wi-Fi network. Access Point (AP) mode remains available through a compile-time configuration constant.
 
 **Source:**
 - `src/services/debug/WirelessDebugService.h`
@@ -12,65 +14,100 @@ Allows an external TCP client to connect to the device and receive debug output 
 
 ## 2. Responsibilities
 
-- Configure Wi-Fi in `WIFI_AP_STA` mode.
-- Start a Wi-Fi access point for wireless debugging.
-- Configure the access point SSID, password and Wi-Fi channel.
+- Select between Wi-Fi Station and Access Point modes.
+- Connect to an existing Wi-Fi network in STA mode.
+- Optionally start a Wi-Fi access point for debugging.
 - Start a TCP server on port `3333`.
+- Apply a connection timeout of 15 seconds in STA mode.
 - Accept incoming TCP debug client connections.
 - Replace an existing connected client when a new client is accepted.
 - Register the active TCP client with `DebugSerial`.
 - Detect client disconnection and clear the registered client.
 - Call `DebugSerial.update()` to transmit buffered debug output.
-- Report access point status and client connection events through `DebugSerial`.
+- Report Wi-Fi status, IP address, TCP port and client connection events through `DebugSerial`.
 
 ## 3. Module Dependencies
 
 | Module / Component | Responsibility |
 |---|---|
 | `WirelessDebugService.h` | Declares the service class and its configuration |
-| `WirelessDebugService.cpp` | Implements access point, TCP client and update management |
-| `WiFi.h` | Provides Wi-Fi access point, server and client APIs |
+| `WirelessDebugService.cpp` | Implements Wi-Fi connection, TCP client and update management |
+| `WiFi.h` | Provides Wi-Fi, server and client APIs |
 | `WiFiServer` | Listens for incoming TCP connections |
 | `WiFiClient` | Represents the active TCP debug connection |
 | `DebugSerial` | Handles USB output and buffered TCP debug transmission |
 | Arduino `Serial` | Physical serial output used internally by `DebugSerial` |
+| `millis()` and `delay()` | Manage the STA connection timeout and retry interval |
 
 ## 4. Configuration
+
+### Header Configuration
 
 | Setting | Value | Purpose |
 |---|---|---|
 | `TCP_PORT` | `3333` | TCP server listening port |
-| `WIFI_CHANNEL` | `1` | Wi-Fi access point channel |
-| `apSSID` | `WeatherBus-Debug` | Access point name |
-| `apPassword` | `WB2Debug88` | Access point password |
-| Wi-Fi mode | `WIFI_AP_STA` | Enables access point and station modes |
+| `WIFI_CHANNEL` | `1` | Wi-Fi channel used in AP mode |
+| Class member `apSSID` | `WeatherBus-Debug` | AP SSID declared in the header |
+| Class member `apPassword` | Configured in header | AP password declared in the header |
+| `WiFiServer server` | `server{TCP_PORT}` | TCP server instance |
+| `WiFiClient client` | Default constructed | Stores the active TCP client |
 
-The TCP server is constructed using `TCP_PORT`.
+### Implementation Configuration
 
-The access point password is defined in the source header. Treat it as development configuration and review it before distributing firmware.
+| Setting | Current Value / Behaviour | Purpose |
+|---|---|---|
+| `USE_AP_MODE` | `false` | Selects STA mode by default |
+| Global `apSSID` | `WeatherBus-Debug` | SSID used by the AP implementation |
+| Global `apPassword` | Configured in `.cpp` | Password used by the AP implementation |
+| `staSSID` | Configured in `.cpp` | Existing Wi-Fi network name |
+| `staPassword` | Configured in `.cpp` | Existing Wi-Fi network password |
+| `CONNECT_TIMEOUT_MS` | `15000` ms | Maximum STA connection wait |
+| `TCP_PORT` | `3333` | TCP debug port |
+
+**Configuration note:** The AP password defined in the header differs from the global AP password in the `.cpp`. The current implementation uses the global variables in the `.cpp` when starting AP mode; the class members are not used by that code.
+
+The Wi-Fi credentials are hard-coded in the implementation and should be reviewed before distributing firmware.
 
 ## 5. Initialization Sequence
 
-The `begin()` function performs these operations:
+### `begin()`
 
-1. Set Wi-Fi mode to `WIFI_AP_STA`.
-2. Attempt to start the access point using the configured SSID, password and channel.
-3. If access point startup fails, print an error through `DebugSerial` and return `false`.
-4. Start the TCP server using `server.begin()`.
-5. Enable no-delay mode on the server using `server.setNoDelay(true)`.
-6. Print the wireless debugging banner.
-7. Report the SSID, access point IP address and TCP port.
-8. Print a message indicating that the service is waiting for a debug client.
-9. Return `true`.
+The function selects the Wi-Fi mode using `USE_AP_MODE`.
+
+### AP Mode — `USE_AP_MODE = true`
+
+1. Sets Wi-Fi mode to `WIFI_AP_STA`.
+2. Attempts to start the access point using the configured SSID, password and channel.
+3. If AP startup fails, prints an error through `DebugSerial` and returns `false`.
+4. Prints the selected mode, SSID and AP IP address.
+5. Starts the TCP server using `server.begin()`.
+6. Enables no-delay mode on the server using `server.setNoDelay(true)`.
+7. Prints the TCP debug port.
+8. Returns `true`.
+
+### STA Mode — `USE_AP_MODE = false`
+
+1. Sets Wi-Fi mode to `WIFI_STA`.
+2. Starts connecting to the configured Wi-Fi network using `WiFi.begin()`.
+3. Prints the selected mode and network SSID.
+4. Waits for the connection, checking `WiFi.status()` every 250 ms.
+5. Stops waiting after `15000` ms if the connection has not succeeded.
+6. If connection fails, prints an error and returns `false`.
+7. If connected, prints the local IP address.
+8. Starts the TCP server using `server.begin()`.
+9. Enables no-delay mode on the server using `server.setNoDelay(true)`.
+10. Prints the TCP debug port.
+11. Returns `true`.
 
 ### Initialization Failure Behaviour
 
 | Component | Current Behaviour |
 |---|---|
 | Wi-Fi mode configuration | Return value is not checked |
-| Access point startup | Reports failure and returns `false` |
+| AP startup | Reports failure and returns `false` |
+| STA connection | Waits up to 15 seconds; returns `false` on timeout |
 | TCP server startup | No explicit failure check |
-| Debug banner | Printed after successful access point startup |
+| TCP no-delay configuration | Enabled; return value is not checked |
 
 The caller must decide how to handle a `false` return from `begin()`.
 
@@ -80,56 +117,66 @@ The `update()` function manages the TCP connection and services buffered debug o
 
 ### New Client Handling
 
-1. Check `server.hasClient()`.
-2. Accept the incoming connection using `server.accept()`.
-3. Verify that the returned client is valid.
-4. If an existing client is connected, stop that connection.
-5. Assign the new client to the service's `client` object.
-6. Enable no-delay mode on the new client.
-7. Register the client pointer with `DebugSerial.setClient(&client)`.
-8. Print a client-connected message.
+1. Checks `server.hasClient()`.
+2. Accepts the incoming connection using `server.accept()`.
+3. Verifies that the returned client is valid.
+4. If an existing client is connected, stops that connection.
+5. Assigns the new client to the service's `client` object.
+6. Enables no-delay mode on the new client using `client.setNoDelay(true)`.
+7. Registers the client pointer with `DebugSerial.setClient(&client)`.
+8. Prints a client-connected message.
 
-The service maintains one active client object. When a new client is accepted, an existing connected client is stopped before the new connection is registered.
+The service maintains one active client object. A newly accepted client replaces an existing connected client.
 
 ### Disconnection Handling
 
 After checking for new connections:
 
-1. Check whether the stored client exists but is no longer connected.
-2. Stop the client.
-3. Clear the client pointer in `DebugSerial` using `DebugSerial.setClient(nullptr)`.
+1. Checks whether the stored client exists but is no longer connected.
+2. Stops the client.
+3. Clears the registered client pointer using `DebugSerial.setClient(nullptr)`.
 
-The service then calls `DebugSerial.update()`.
+The service then calls `DebugSerial.update()` to transmit buffered debug output when a client is available.
 
-## 7. Main Flow Tree
+##  7. Main Flow Tree
 
 ```text
 WirelessDebugService
 │
-├── CLASS CONFIGURATION
+├── CONFIGURATION
+│   ├── USE_AP_MODE = false
 │   ├── TCP_PORT = 3333
 │   ├── WIFI_CHANNEL = 1
-│   ├── apSSID
-│   ├── apPassword
+│   ├── AP credentials
+│   ├── STA credentials
 │   ├── WiFiServer server
 │   └── WiFiClient client
 │
 ├── begin()
-│   ├── WiFi.mode(WIFI_AP_STA)
-│   ├── Start Wi-Fi access point
-│   │   ├── Failure
-│   │   │   ├── Print error
-│   │   │   └── Return false
+│   │
+│   ├── USE_AP_MODE = true
+│   │   ├── WiFi.mode(WIFI_AP_STA)
+│   │   ├── Start Wi-Fi access point
+│   │   ├── Failure → Print error → Return false
 │   │   └── Success
-│   │       ├── server.begin()
-│   │       ├── server.setNoDelay(true)
-│   │       ├── Print debug banner
-│   │       ├── Print SSID
-│   │       ├── Print access point IP
-│   │       ├── Print TCP port
+│   │       ├── Print AP SSID and IP
+│   │       ├── Start TCP server
+│   │       ├── Enable server no-delay
 │   │       └── Return true
+│   │
+│   └── USE_AP_MODE = false
+│       ├── WiFi.mode(WIFI_STA)
+│       ├── WiFi.begin(staSSID, staPassword)
+│       ├── Wait for connection (maximum 15 seconds)
+│       ├── Timeout → Print error → Return false
+│       └── Connected
+│           ├── Print local IP
+│           ├── Start TCP server
+│           ├── Enable server no-delay
+│           └── Return true
 │
 └── update()
+    │
     ├── Check server.hasClient()
     ├── Accept new client
     │   ├── Validate new client
@@ -144,18 +191,18 @@ WirelessDebugService
     │   └── DebugSerial.setClient(nullptr)
     │
     └── DebugSerial.update()
-        ├── Check registered client
-        ├── Read buffered debug bytes
-        └── Transmit data through TCP
+        └── Transmit buffered debug output through TCP
+
 ```
 
-## 8. Wireless Debug Data Flow
+##  8. Wireless Debug Data Flow
 
 ```text
+
 WeatherBus_2 Application
           │
           ▼
-    DebugSerial
+     DebugSerial
           │
           ├──► USB Serial
           │
@@ -169,89 +216,50 @@ WeatherBus_2 Application
                        └── DebugSerial.update()
                                   │
                                   ▼
-                            WiFiClient
+                             WiFiClient
                                   │
                                   ▼
-                           TCP Port 3333
+                            TCP Port 3333
                                   │
                                   ▼
                          External Debug Client
+
 ```
 
-### Connection Lifecycle
+## 9. Connection Lifecycle
 
 ```text
 WirelessDebugService.begin()
           │
           ▼
-Start Wi-Fi Access Point
+Select Wi-Fi Mode
           │
-          ▼
-Start TCP Server
+          ├── AP Mode
+          │     └── Start Access Point
           │
-          ▼
-Wait for TCP Client
-          │
-          ▼
-Accept Client
-          │
-          ▼
-Register with DebugSerial
-          │
-          ▼
-Transmit Buffered Debug Output
-          │
-          ├── Client remains connected
-          │       └── Continue update()
-          │
-          └── Client disconnects
-                  ├── Stop client
-                  ├── Clear DebugSerial client
-                  └── Continue waiting for connections
+          └── STA Mode
+                └── Connect to Existing Wi-Fi
+                          │
+                          ▼
+                   Start TCP Server
+                          │
+                          ▼
+                   Wait for TCP Client
+                          │
+                          ▼
+                     Accept Client
+                          │
+                          ▼
+                Register with DebugSerial
+                          │
+                          ▼
+             Transmit Buffered Debug Output
+                          │
+                          ├── Client remains connected
+                          │       └── Continue update()
+                          │
+                          └── Client disconnects
+                                  ├── Stop client
+                                  ├── Clear DebugSerial client
+                                  └── Continue waiting
 ```
-
-## 9. Error Handling and Limitations
-
-- If access point startup fails, `begin()` returns `false`.
-- TCP server startup is not explicitly verified.
-- The Wi-Fi mode configuration result is not checked.
-- The service supports one active debug client at a time.
-- A newly accepted client replaces the existing connected client.
-- The service does not explicitly report errors from TCP server acceptance or transmission.
-- `DebugSerial` handles buffer overflow independently; new debug bytes may be dropped when its ring buffer is full.
-- Debug output generated while disconnected may remain buffered until the buffer fills or a client reconnects.
-- The service does not provide message framing, application-level acknowledgements or authentication beyond the configured Wi-Fi access point password.
-- The implementation depends on the application calling `update()` regularly.
-- The supplied code does not explicitly handle multiple queued connection attempts beyond the client returned by `server.accept()`.
-
-These points describe the supplied implementation and should not be interpreted as evidence that all failure cases have been tested.
-
-## 10. Development Rules
-
-When modifying `WirelessDebugService.h` or `WirelessDebugService.cpp`:
-
-1. Keep Wi-Fi access point and TCP connection management inside `WirelessDebugService`.
-2. Keep debug output buffering and transmission inside `DebugSerial`.
-3. Register the active client with `DebugSerial` only while its object remains valid.
-4. Clear the registered client when the connection is disconnected or replaced.
-5. Preserve USB Serial output independently of TCP connectivity.
-6. Keep the TCP port and access point configuration consistent with the documented connection procedure.
-7. Ensure `update()` is called regularly from the application loop.
-8. Review connection replacement and buffer behaviour before adding multi-client support.
-9. Review access point credentials before preparing firmware for wider distribution.
-10. Update this document when connection handling or initialization behaviour changes.
-
-## 11. Test Status
-
-The supplied source code establishes the intended implementation, but does not establish that the following behaviours have passed runtime tests:
-
-- Successful access point startup.
-- TCP connection using port `3333`.
-- Reception of debug output by an external TCP client.
-- Replacement of an existing client by a new client.
-- Buffer retention while disconnected.
-- Recovery after client disconnection and reconnection.
-- Behaviour when access point or TCP server initialization fails.
-
-Record verified results in the project's testing documentation against the relevant firmware revision.
-

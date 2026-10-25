@@ -9,6 +9,10 @@
 
 It handles transport initialization, peer registration, packet transmission, and reception through the ESP-NOW callback mechanism.
 
+The implementation configures Wi-Fi differently depending on the build target:
+- **Base Station (`WEATHERBUS_BASE`)** — uses `WIFI_AP_STA` to support Access Point and Station modes simultaneously.
+- **Node** — uses `WIFI_STA` and explicitly sets Wi-Fi channel `6` to match the iPhone hotspot.
+
 ## Class Structure
 
 `ESPNowTransport` inherits from `ITransport`.
@@ -18,7 +22,7 @@ It handles transport initialization, peer registration, packet transmission, and
 | Function | Description |
 |---|---|
 | `ESPNowTransport()` | Initializes the callback pointer and readiness state, and assigns the instance pointer. |
-| `begin(callback)` | Initializes ESP-NOW and registers the receive callback. |
+| `begin(callback)` | Configures Wi-Fi according to the build target, initializes ESP-NOW, reports the current Wi-Fi channel, and registers the receive callback. |
 | `addPeer(address)` | Registers an ESP-NOW peer using its MAC address. |
 | `send(destination, data, length)` | Sends data to a specified destination. |
 | `update()` | Performs no periodic processing because reception is callback-driven. |
@@ -47,13 +51,18 @@ It handles transport initialization, peer registration, packet transmission, and
 The function:
 
 1. Stores the receive callback.
-2. Configures Wi-Fi in station mode using `WIFI_STA`.
-3. Prints the device MAC address.
-4. Initializes ESP-NOW.
-5. Registers the ESP-NOW receive callback.
-6. Sets `ready = true` when initialization succeeds.
+2. Configures Wi-Fi according to the build target:
+   - `WEATHERBUS_BASE` defined: sets `WIFI_AP_STA`.
+   - Otherwise: sets `WIFI_STA` and configures Wi-Fi channel `6`.
+3. For Node builds, returns `false` if setting channel `6` fails.
+4. Prints the device MAC address.
+5. Initializes ESP-NOW.
+6. Returns `false` if ESP-NOW initialization fails.
+7. Queries and prints the current Wi-Fi channel. Failure to query the channel is reported but does not stop initialization.
+8. Registers the ESP-NOW receive callback.
+9. Sets `ready = true` and reports successful initialization.
 
-Returns `false` if ESP-NOW initialization fails. Otherwise, returns `true`.
+Returns `true` when initialization succeeds.
 
 ## Peer Registration
 
@@ -94,7 +103,8 @@ The static ESP-NOW callback:
 1. Ignores the source MAC address.
 2. Checks that the class instance exists.
 3. Rejects null data pointers and non-positive lengths.
-4. Forwards the received data to `handleReceive()`.
+4. Converts the received length to `size_t`.
+5. Forwards the received data to `handleReceive()`.
 
 ### `handleReceive(data, length)`
 
@@ -118,32 +128,32 @@ Returns the current value of `ready`.
 
 - `ESPNowTransport.h`
 - `ITransport.h`
-- Arduino Wi-Fi library
-- ESP-NOW library
+- `DebugSerial.h`
+- Arduino Wi-Fi library (`WiFi.h`)
+- ESP-NOW library (`esp_now.h`)
+- ESP Wi-Fi library (`esp_wifi.h`)
 - `memcpy()`
 
 ## Behavioural Notes and Limitations
 
 - ESP-NOW MAC addresses must be exactly 6 bytes long.
-- Peer encryption is disabled.
-- The peer channel is configured as `0`.
+- The Base Station uses `WIFI_AP_STA`; Node builds use `WIFI_STA`.
+- Node builds explicitly set Wi-Fi channel `6`. Failure to set the channel prevents initialization.
+- The current Wi-Fi channel is queried and reported, but query failure does not prevent initialization.
+- Peer configuration uses channel `0` and disables encryption.
 - The source MAC address of received packets is ignored.
 - The transport does not validate WeatherBus packet headers, packet types, sequence numbers, or CRC.
 - The transport does not register a send-completion callback.
 - Successful transmission API submission does not guarantee packet delivery.
 - The implementation uses a static instance pointer, so the receive callback is designed around a single active `ESPNowTransport` instance.
 - `ready` indicates successful ESP-NOW initialization; it does not independently verify peer availability or delivery status.
+- `DebugSerial.h` is included, but this implementation uses `Serial` for its diagnostic output.
 
 ## Test Status
 
-**Code review:** Initialization, peer registration, transmission, callback-based reception, and readiness reporting are documented from the provided source.
+**Code review:** Initialization, build-dependent Wi-Fi configuration, Node channel selection, peer registration, transmission, callback-based reception, and readiness reporting are documented from the provided source.
 
-Hardware communication and packet-delivery test results should be recorded separately.
-
-
-
-
-
+Hardware communication, channel compatibility, and packet-delivery test results should be recorded separately.
 
 ## WeatherBus_2 — `ESPNowTransport.cpp` Flow Tree
 
@@ -162,12 +172,26 @@ ESPNowTransport
 ├── begin(callback)
 │   │
 │   ├── Store receive callback
-│   ├── Set Wi-Fi mode to WIFI_STA
-│   ├── Print Base MAC address
+│   │
+│   ├── Configure Wi-Fi
+│   │   │
+│   │   ├── WEATHERBUS_BASE defined
+│   │   │   └── WiFi.mode(WIFI_AP_STA)
+│   │   │
+│   │   └── Node build
+│   │       ├── WiFi.mode(WIFI_STA)
+│   │       ├── Set Wi-Fi channel = 6
+│   │       └── Channel setup failed
+│   │           └── ready = false → Return false
+│   │
+│   ├── Print device MAC address
 │   │
 │   ├── Initialize ESP-NOW
 │   │   ├── Failed → ready = false → Return false
 │   │   └── Success
+│   │       ├── Query current Wi-Fi channel
+│   │       │   ├── Success → Print channel
+│   │       │   └── Failed → Print error, continue
 │   │       ├── Register onDataReceived()
 │   │       ├── ready = true
 │   │       └── Return true
@@ -226,19 +250,22 @@ ESPNowTransport
     │   └── nullptr → Return
     │
     └── Invoke receiveCallback(data, length)
+
+
 ```
+
 
 ### DATA SEND FLOW (TX)
 
 ```text
-Caller
+    Caller
   │
   ▼
 send(destination, data, length)
   │
   ├── Validate transport status
-  ├── Validate destination
-  ├── Validate data
+  ├── Validate destination address length
+  ├── Validate data pointer and length
   │
   ▼
 esp_now_send()
@@ -246,34 +273,36 @@ esp_now_send()
   ├── API error → Return false
   │
   └── API accepted → Return true
+
 ```
 
-**Nota:** `send()` memulangkan `true` apabila panggilan `esp_now_send()` diterima tanpa ralat API. Ini tidak mengesahkan bahawa penerima telah menerima atau memproses paket tersebut.
-
-### DATA REACIVE FLOW (RX)
+### DATA RECEIVE FLOW (RX)
 
 ```text
-Remote ESP-NOW Device
-        │
-        ▼
+
+  Remote ESP-NOW Device
+       │
+       ▼
 ESP-NOW Receive Callback
-        │
-        ▼
+       │
+       ▼
 onDataReceived(mac, data, len)
-        │
-        ├── Check instance
-        ├── Check data and length
-        │
-        ▼
+       │
+       ├── Ignore sender MAC
+       ├── Check instance
+       ├── Check data pointer and length
+       │
+       ▼
 handleReceive(data, length)
-        │
-        ├── Check receiveCallback
-        │
-        ▼
+       │
+       ├── Check receiveCallback
+       │
+       ▼
 receiveCallback(data, length)
-        │
-        ▼
+       │
+       ▼
 Caller handles packet
 (e.g. Base Station main.cpp)
+
 ```
 

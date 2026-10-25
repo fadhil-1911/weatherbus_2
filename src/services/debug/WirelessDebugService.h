@@ -17,7 +17,7 @@ private:
     static constexpr uint8_t WIFI_CHANNEL = 1;
 
     const char* apSSID = "WeatherBus-Debug";
-    const char* apPassword = "WB2Debug88";
+    const char* apPassword = "WB2Debug";
 
     WiFiServer server{TCP_PORT};
     WiFiClient client;

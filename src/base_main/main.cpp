@@ -5,11 +5,11 @@
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 /*
   Module  : Base Station - Main Application: 
-  Phase   : wifi serial debug, ESP-NOW transport, SD logging, RTC timestamp
+  Phase   : 
 */
 
 #include <Arduino.h>
-
+#include "../services/web/WebDashboardService.h"
 #include "../common/weatherbus_protocol.h"
 
 #include <Wire.h>
@@ -28,6 +28,7 @@ NodeManager nodeManager;
 ESPNowTransport transport;
 RTCClock rtcClock;
 WirelessDebugService wirelessDebug;
+WebDashboardService webDashboard;
 
 PollingEngine pollingEngine(
     nodeManager,
@@ -158,6 +159,13 @@ void onValidNodeResponse(
     pendingLogFlags = flags;
 
     nodeLogPending = true;
+
+    webDashboard.setNodeData(
+        nodeId,
+        temperature,
+        humidity,
+        pressure,
+        flags);
 }
 
 // =====================================================
@@ -237,6 +245,10 @@ void setup() {
             "[WiFi Debug] Initialization failed");
     }
 
+    if (!webDashboard.begin()) {
+        Serial.println("[Web] Dashboard initialization failed");
+    }
+
     setupI2C();
 
     Serial.println();
@@ -307,6 +319,12 @@ void setup() {
 // =====================================================
 
 void loop() {
+    // -------------------------------------------------
+    // Wireless Debug
+    // -------------------------------------------------
+
+    webDashboard.update();
+
     // -------------------------------------------------
     // Wireless Debug
     // -------------------------------------------------
@@ -436,6 +454,12 @@ void loop() {
         //localSensorService.readSensors(data, flags);
         bool sensorReadOK =
             localSensorService.readSensors(data, flags);
+
+        webDashboard.setLocalData(
+            data.temperature,
+            data.humidity,
+            flags,
+            sensorReadOK);
 
         if (!sensorReadOK) {
             Serial.println("WARNING: Local sensor read failed");

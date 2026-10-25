@@ -7,6 +7,7 @@
 
 #include <WiFi.h>
 #include <esp_now.h>
+#include <esp_wifi.h>
 
 ESPNowTransport* ESPNowTransport::instance = nullptr;
 
@@ -28,14 +29,29 @@ bool ESPNowTransport::begin(
     TransportReceiveCallback callback) {
     receiveCallback = callback;
 
-    //WiFi.mode(WIFI_STA);
 #if defined(WEATHERBUS_BASE)
     WiFi.mode(WIFI_AP_STA);
 #else
     WiFi.mode(WIFI_STA);
+
+    // Match Node channel with the iPhone hotspot.
+    constexpr uint8_t NODE_WIFI_CHANNEL = 6;
+
+    esp_err_t channelResult = esp_wifi_set_channel(
+        NODE_WIFI_CHANNEL,
+        WIFI_SECOND_CHAN_NONE);
+
+    if (channelResult != ESP_OK) {
+        Serial.printf(
+            "Failed to set Wi-Fi channel: %d\n",
+            channelResult);
+
+        ready = false;
+        return false;
+    }
 #endif
 
-    Serial.print("Base MAC: ");
+    Serial.print("MAC: ");
     Serial.println(WiFi.macAddress());
 
     if (esp_now_init() != ESP_OK) {
@@ -46,13 +62,29 @@ bool ESPNowTransport::begin(
         return false;
     }
 
+    uint8_t primaryChannel;
+    wifi_second_chan_t secondaryChannel;
+
+    esp_err_t err = esp_wifi_get_channel(
+        &primaryChannel,
+        &secondaryChannel);
+
+    if (err == ESP_OK) {
+        Serial.printf(
+            "Current Wi-Fi channel: %u\n",
+            primaryChannel);
+    } else {
+        Serial.printf(
+            "Failed to get Wi-Fi channel: %d\n",
+            err);
+    }
+
     esp_now_register_recv_cb(
         ESPNowTransport::onDataReceived);
 
     ready = true;
 
-    Serial.println(
-        "ESP-NOW transport initialized");
+    Serial.println("ESP-NOW transport initialized");
 
     return true;
 }
